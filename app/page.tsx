@@ -19,15 +19,16 @@ export default function Home() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
     setLoading(false);
 
-    if (error) {
-      setError("Email ya password ghalat hai. Dobara check karein.");
+    if (loginError) {
+      setError(loginError.message);
       return;
     }
 
@@ -48,8 +49,7 @@ export default function Home() {
         padding: "35px",
         borderRadius: "14px",
         width: "100%",
-        maxWidth: "390px",
-        boxShadow: "0 8px 30px #00000012"
+        maxWidth: "390px"
       }}>
         <h1 style={{ color: "#102b50", textAlign: "center" }}>
           WIN GROUP
@@ -93,8 +93,7 @@ export default function Home() {
               minWidth: 0,
               padding: "12px",
               border: "none",
-              outline: "none",
-              background: "transparent"
+              outline: "none"
             }}
           />
 
@@ -104,16 +103,23 @@ export default function Home() {
             style={{
               padding: "0 12px",
               border: "none",
-              background: "white",
-              cursor: "pointer",
-              color: "#102b50"
+              background: "white"
             }}
           >
             {showPassword ? "Hide" : "Show"}
           </button>
         </div>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        {error && (
+          <p style={{
+            color: "red",
+            background: "#fff0f0",
+            padding: "10px",
+            overflowWrap: "anywhere"
+          }}>
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
@@ -124,8 +130,7 @@ export default function Home() {
             background: "#102b50",
             color: "white",
             border: "none",
-            borderRadius: "7px",
-            cursor: "pointer"
+            borderRadius: "7px"
           }}
         >
           {loading ? "Logging in..." : "Login"}
@@ -138,4 +143,3 @@ export default function Home() {
     </main>
   );
 }
-
