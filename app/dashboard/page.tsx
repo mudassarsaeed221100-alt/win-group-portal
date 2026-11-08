@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-
+import UserManagement from "./UserManagement";
 const menuItems = [
   "Overview",
   "User Management",
@@ -110,7 +110,9 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {activeMenu === "Overview" ? (
+        {activeMenu === "User Management" ? (
+  <UserManagement />
+) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
               <h2>Welcome, {username}</h2>
