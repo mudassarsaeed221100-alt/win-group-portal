@@ -10,6 +10,7 @@ export default function Home() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +27,7 @@ export default function Home() {
     setLoading(false);
 
     if (error) {
-      setError("Email ya password ghalat hai.");
+      setError("Email ya password ghalat hai. Dobara check karein.");
       return;
     }
 
@@ -47,7 +48,8 @@ export default function Home() {
         padding: "35px",
         borderRadius: "14px",
         width: "100%",
-        maxWidth: "390px"
+        maxWidth: "390px",
+        boxShadow: "0 8px 30px #00000012"
       }}>
         <h1 style={{ color: "#102b50", textAlign: "center" }}>
           WIN GROUP
@@ -65,17 +67,51 @@ export default function Home() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", padding: "12px", margin: "10px 0 20px" }}
+          style={{
+            width: "100%",
+            padding: "12px",
+            margin: "10px 0 20px",
+            boxSizing: "border-box"
+          }}
         />
 
         <label>Password</label>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", padding: "12px", margin: "10px 0 20px" }}
-        />
+
+        <div style={{
+          display: "flex",
+          border: "1px solid #aaa",
+          borderRadius: "6px",
+          margin: "10px 0 20px"
+        }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "12px",
+              border: "none",
+              outline: "none",
+              background: "transparent"
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              padding: "0 12px",
+              border: "none",
+              background: "white",
+              cursor: "pointer",
+              color: "#102b50"
+            }}
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
 
         {error && <p style={{ color: "red" }}>{error}</p>}
 
@@ -88,7 +124,8 @@ export default function Home() {
             background: "#102b50",
             color: "white",
             border: "none",
-            borderRadius: "7px"
+            borderRadius: "7px",
+            cursor: "pointer"
           }}
         >
           {loading ? "Logging in..." : "Login"}
@@ -101,3 +138,4 @@ export default function Home() {
     </main>
   );
 }
+
