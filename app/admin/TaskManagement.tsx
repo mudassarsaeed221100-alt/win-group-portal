@@ -94,6 +94,14 @@ export default function TaskManagement() {
     );
   }
 
+  function toggleAllStaff() {
+    if (selectedStaff.length === staff.length) {
+      setSelectedStaff([]);
+    } else {
+      setSelectedStaff(staff.map((member) => member.id));
+    }
+  }
+
   async function createTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -142,6 +150,9 @@ export default function TaskManagement() {
     }
   }
 
+  const allStaffSelected =
+    staff.length > 0 && selectedStaff.length === staff.length;
+
   const statusColors: Record<string, string> = {
     pending: "#d97706",
     in_progress: "#2563eb",
@@ -189,9 +200,39 @@ export default function TaskManagement() {
             </div>
 
             <div>
-              <label style={labelStyle}>
-                Assign To Staff * ({selectedStaff.length} selected)
-              </label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  marginBottom: 9,
+                }}
+              >
+                <label style={{ ...labelStyle, marginBottom: 0 }}>
+                  Assign To Staff * ({selectedStaff.length} of {staff.length} selected)
+                </label>
+
+                <button
+                  type="button"
+                  onClick={toggleAllStaff}
+                  disabled={staff.length === 0}
+                  style={{
+                    border: "1px solid #1d4ed8",
+                    background: allStaffSelected ? "#eff6ff" : "#1d4ed8",
+                    color: allStaffSelected ? "#1d4ed8" : "white",
+                    padding: "8px 13px",
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: staff.length === 0 ? "not-allowed" : "pointer",
+                    opacity: staff.length === 0 ? 0.5 : 1,
+                  }}
+                >
+                  {allStaffSelected ? "Deselect All" : "Select All"}
+                </button>
+              </div>
 
               <div style={staffListStyle}>
                 {staff.map((member) => (
@@ -214,7 +255,8 @@ export default function TaskManagement() {
               </div>
 
               <p style={{ fontSize: 12, color: "#64748b" }}>
-                Aap ek ya multiple Staff members select kar sakte hain.
+                Select All se tamam Staff select honge. Aap individual Staff
+                ko bhi select ya deselect kar sakte hain.
               </p>
             </div>
 
