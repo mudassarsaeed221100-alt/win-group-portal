@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -43,75 +44,252 @@ export default function StaffDashboard() {
   }
 
   if (loading) {
-    return <main style={{ padding: 40 }}>Loading Staff Dashboard...</main>;
+    return (
+      <div style={{ padding: 40, fontFamily: "Arial" }}>
+        Loading your workspace...
+      </div>
+    );
   }
+
+  const cards = [
+    {
+      icon: "✓",
+      title: "My Tasks",
+      description: "View and manage your assigned work.",
+      color: "#2563eb",
+    },
+    {
+      icon: "▦",
+      title: "Departments",
+      description: "Explore your organization departments.",
+      color: "#0891b2",
+    },
+    {
+      icon: "▤",
+      title: "My Reports",
+      description: "Your work reports and performance.",
+      color: "#7c3aed",
+    },
+    {
+      icon: "⚙",
+      title: "Account Settings",
+      description: "Manage your account information.",
+      color: "#059669",
+    },
+  ];
 
   return (
     <main style={{
       minHeight: "100vh",
-      background: "#f1f5f9",
-      padding: 30,
-      fontFamily: "Arial, sans-serif"
+      background: "#f4f7fb",
+      fontFamily: "Arial, sans-serif",
+      color: "#172033",
     }}>
+
       <header style={{
-        background: "#0f172a",
+        background: "#101d35",
         color: "white",
-        padding: 25,
-        borderRadius: 12,
+        padding: "18px 5%",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         flexWrap: "wrap",
-        gap: 15
+        gap: 15,
       }}>
         <div>
-          <h1 style={{ margin: 0 }}>WIN GROUP</h1>
-          <p style={{ marginBottom: 0 }}>Staff Dashboard</p>
+          <h1 style={{ margin: 0, fontSize: 25, letterSpacing: 1 }}>
+            WIN GROUP
+          </h1>
+          <p style={{
+            margin: "5px 0 0",
+            color: "#a9b9d2",
+            fontSize: 12,
+            letterSpacing: 2,
+          }}>
+            WOLF INDEPENDENT NATIONAL GROUP
+          </p>
         </div>
 
         <button onClick={logout} style={{
-          padding: "10px 20px",
-          background: "#dc2626",
+          background: "#e34b55",
           color: "white",
           border: "none",
-          borderRadius: 6,
-          cursor: "pointer"
+          padding: "11px 22px",
+          borderRadius: 8,
+          fontWeight: "bold",
+          cursor: "pointer",
         }}>
           Logout
         </button>
       </header>
 
-      <section style={{
-        background: "white",
-        marginTop: 25,
-        padding: 25,
-        borderRadius: 12
+      <div style={{
+        maxWidth: 1250,
+        margin: "auto",
+        padding: "35px 5%",
       }}>
-        <h2>Welcome, {username}</h2>
-        <p>You are successfully logged in as Staff.</p>
-        <p><strong>Role:</strong> Staff</p>
-      </section>
 
-      <section style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: 20,
-        marginTop: 25
-      }}>
-        {["My Tasks", "Departments", "My Reports", "Account Settings"].map(item => (
-          <div key={item} style={{
-            background: "white",
-            padding: 25,
-            borderRadius: 12,
-            fontWeight: "bold"
+        <section style={{
+          background: "linear-gradient(120deg, #172c50, #2457a5)",
+          color: "white",
+          borderRadius: 18,
+          padding: "35px 30px",
+          boxShadow: "0 12px 30px rgba(20,50,100,0.13)",
+        }}>
+          <p style={{
+            color: "#c8dcff",
+            margin: "0 0 10px",
+            fontSize: 13,
+            letterSpacing: 2,
           }}>
-            {item}
-            <p style={{ color: "#64748b", fontWeight: "normal" }}>
-              Coming Soon
-            </p>
+            STAFF WORKSPACE
+          </p>
+
+          <h2 style={{
+            fontSize: 30,
+            margin: "0 0 12px",
+          }}>
+            Welcome, {username}!
+          </h2>
+
+          <p style={{
+            color: "#e0eaff",
+            maxWidth: 600,
+            lineHeight: 1.7,
+            margin: 0,
+          }}>
+            Welcome to WIN GROUP. Your contribution matters.
+            We are glad to have you as part of our team.
+          </p>
+
+          <div style={{
+            marginTop: 25,
+            display: "inline-block",
+            background: "rgba(255,255,255,0.15)",
+            padding: "9px 16px",
+            borderRadius: 30,
+            fontSize: 13,
+          }}>
+            ● Active Staff Account
           </div>
-        ))}
-      </section>
+        </section>
+
+        <div style={{ marginTop: 35 }}>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>
+            Your Workspace
+          </h2>
+          <p style={{ color: "#718096", marginTop: 0 }}>
+            Everything you need to get started with your work.
+          </p>
+        </div>
+
+        <section style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(225px, 1fr))",
+          gap: 20,
+          marginTop: 22,
+        }}>
+          {cards.map((card) => (
+            <div key={card.title} style={{
+              background: "white",
+              padding: 25,
+              borderRadius: 14,
+              border: "1px solid #e8edf5",
+              boxShadow: "0 5px 18px rgba(20,40,80,0.04)",
+            }}>
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: `${card.color}15`,
+                color: card.color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 25,
+                fontWeight: "bold",
+                marginBottom: 20,
+              }}>
+                {card.icon}
+              </div>
+
+              <h3 style={{ margin: "0 0 10px", fontSize: 18 }}>
+                {card.title}
+              </h3>
+
+              <p style={{
+                color: "#718096",
+                fontSize: 13,
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+                {card.description}
+              </p>
+
+              <div style={{
+                marginTop: 18,
+                color: card.color,
+                fontSize: 12,
+                fontWeight: "bold",
+              }}>
+                COMING SOON
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section style={{
+          marginTop: 30,
+          background: "white",
+          border: "1px solid #e8edf5",
+          borderRadius: 14,
+          padding: 25,
+        }}>
+          <h3 style={{ marginTop: 0 }}>Your Account</h3>
+
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 15,
+          }}>
+            <div>
+              <p style={{ color: "#718096", fontSize: 12 }}>
+                USERNAME
+              </p>
+              <strong>{username}</strong>
+            </div>
+
+            <div>
+              <p style={{ color: "#718096", fontSize: 12 }}>
+                ACCOUNT ROLE
+              </p>
+              <strong>Staff Member</strong>
+            </div>
+
+            <div>
+              <p style={{ color: "#718096", fontSize: 12 }}>
+                ACCOUNT STATUS
+              </p>
+              <strong style={{ color: "#059669" }}>
+                Active
+              </strong>
+            </div>
+          </div>
+        </section>
+
+        <footer style={{
+          textAlign: "center",
+          color: "#8792a5",
+          fontSize: 12,
+          marginTop: 40,
+          paddingBottom: 15,
+        }}>
+          © 2026 WIN GROUP. All Rights Reserved.
+          <p>Grow Together. Achieve Together.</p>
+        </footer>
+
+      </div>
     </main>
   );
 }
