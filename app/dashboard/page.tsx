@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,6 +7,7 @@ import { supabase } from "../../lib/supabase";
 import UserManagement from "./UserManagement";
 import ProfileSettings from "./ProfileSettings";
 import Departments from "./Departments";
+import BusinessRecords from "./BusinessRecords";
 
 const menuItems = [
   "Overview",
@@ -342,6 +344,8 @@ export default function Dashboard() {
           <UserManagement />
         ) : activeMenu === "Departments" ? (
           <Departments />
+        ) : activeMenu === "Business Records" ? (
+          <BusinessRecords />
         ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
