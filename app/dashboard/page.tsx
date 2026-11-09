@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+
 import UserManagement from "./UserManagement";
 import ProfileSettings from "./ProfileSettings";
 import Departments from "./Departments";
@@ -11,6 +12,11 @@ import BusinessRecords from "./BusinessRecords";
 import Reports from "./Reports";
 import ActivityLogs from "./ActivityLogs";
 import Security from "./Security";
+import SystemSettings from "./SystemSettings";
+import Notifications from "./Notifications";
+import FlexibleWork from "./FlexibleWork";
+import EarningsLedger from "./EarningsLedger";
+import FounderSupport from "./FounderSupport";
 
 const menuItems = [
   "Overview",
@@ -21,6 +27,10 @@ const menuItems = [
   "Activity Logs",
   "Security",
   "System Settings",
+  "Notifications",
+  "Flexible Work",
+  "Earnings Ledger",
+  "Support Management",
 ];
 
 const menuIcons: Record<string, string> = {
@@ -32,6 +42,10 @@ const menuIcons: Record<string, string> = {
   "Activity Logs": "◷",
   Security: "◇",
   "System Settings": "⚙",
+  Notifications: "◉",
+  "Flexible Work": "▣",
+  "Earnings Ledger": "₹",
+  "Support Management": "✉",
 };
 
 const profileItems = [
@@ -187,8 +201,14 @@ export default function Dashboard() {
             font-size: 42px;
             margin-bottom: 12px;
           }
-          h2 { letter-spacing: 5px; margin: 0; }
-          p { color: #888; font-size: 13px; }
+          h2 {
+            letter-spacing: 5px;
+            margin: 0;
+          }
+          p {
+            color: #888;
+            font-size: 13px;
+          }
         `}</style>
       </main>
     );
@@ -232,14 +252,18 @@ export default function Dashboard() {
             >
               <span className="menu-icon">{menuIcons[item]}</span>
               <span>{item}</span>
-              {activeMenu === item && <span className="active-mark">◆</span>}
+              {activeMenu === item && (
+                <span className="active-mark">◆</span>
+              )}
             </button>
           ))}
         </nav>
 
         <div className="profile-settings-menu">
           <button
-            className={profileItems.includes(activeMenu) ? "menu active" : "menu"}
+            className={
+              profileItems.includes(activeMenu) ? "menu active" : "menu"
+            }
             onClick={() => setProfileSettingsOpen(!profileSettingsOpen)}
           >
             <span className="menu-icon">⚙</span>
@@ -258,7 +282,9 @@ export default function Dashboard() {
                   onClick={() => openProfilePage(item)}
                 >
                   <span>{item}</span>
-                  {activeMenu === item && <span className="active-mark">◆</span>}
+                  {activeMenu === item && (
+                    <span className="active-mark">◆</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -295,7 +321,9 @@ export default function Dashboard() {
 
           <div className="top-profile-area">
             <div className="top-profile">
-              <div className="top-status"><i /> System Active</div>
+              <div className="top-status">
+                <i /> System Active
+              </div>
               <button
                 className="profile-trigger"
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
@@ -355,11 +383,23 @@ export default function Dashboard() {
           <ActivityLogs />
         ) : activeMenu === "Security" ? (
           <Security />
+        ) : activeMenu === "System Settings" ? (
+          <SystemSettings />
+        ) : activeMenu === "Notifications" ? (
+          <Notifications />
+        ) : activeMenu === "Flexible Work" ? (
+          <FlexibleWork />
+        ) : activeMenu === "Earnings Ledger" ? (
+          <EarningsLedger />
+        ) : activeMenu === "Support Management" ? (
+          <FounderSupport />
         ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
               <div className="welcome-content">
-                <div className="welcome-label">◆ &nbsp; FOUNDER CONTROL CENTER</div>
+                <div className="welcome-label">
+                  ◆ &nbsp; FOUNDER CONTROL CENTER
+                </div>
                 <h2>Welcome, {displayName}</h2>
                 <p>
                   Your organization. Your authority. Manage the entire WIN GROUP
@@ -381,7 +421,9 @@ export default function Dashboard() {
                 <span>ORGANIZATION</span>
                 <h3>Company Overview</h3>
               </div>
-              <div className="overview-status"><i /> Portal Connected</div>
+              <div className="overview-status">
+                <i /> Portal Connected
+              </div>
             </div>
 
             <div className="stats">
@@ -396,7 +438,9 @@ export default function Dashboard() {
                     <span>{label}</span>
                     <div className="stat-icon">{symbol}</div>
                   </div>
-                  <h2 className={value === "Active" ? "online-text" : ""}>{value}</h2>
+                  <h2 className={value === "Active" ? "online-text" : ""}>
+                    {value}
+                  </h2>
                   <small>{note}</small>
                 </div>
               ))}
@@ -413,9 +457,9 @@ export default function Dashboard() {
               <div className="hierarchy">
                 {[
                   ["◆", "Founder / Owner", "Ultimate System Authority"],
-                  ["◈", "Super Admin", "Complete Access to Own Team"],
-                  ["◇", "Admin", "Reports to Super Admin"],
-                  ["○", "Staff", "Reports to Admin"],
+                  ["◈", "Boss", "Management Authority"],
+                  ["◇", "Admin", "Manages Assigned Team"],
+                  ["○", "Staff", "Performs Assigned Work"],
                 ].map(([symbol, title, note], index) => (
                   <div key={title}>
                     <div className={index === 0 ? "level founder" : "level"}>
@@ -424,7 +468,9 @@ export default function Dashboard() {
                         <strong>{title}</strong>
                         <small>{note}</small>
                       </div>
-                      {index === 0 && <span className="level-access">FULL ACCESS</span>}
+                      {index === 0 && (
+                        <span className="level-access">FULL ACCESS</span>
+                      )}
                     </div>
                     {index !== 3 && <div className="hierarchy-line" />}
                   </div>
