@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -19,6 +20,7 @@ type Task = {
   status: string;
   due_date: string | null;
   created_at: string;
+  assignees?: { id: string; username: string }[];
 };
 
 export default function TaskManagement() {
@@ -26,7 +28,7 @@ export default function TaskManagement() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,6 +86,14 @@ export default function TaskManagement() {
     loadData();
   }, []);
 
+  function toggleStaff(id: string) {
+    setSelectedStaff((previous) =>
+      previous.includes(id)
+        ? previous.filter((staffId) => staffId !== id)
+        : [...previous, id]
+    );
+  }
+
   async function createTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -105,7 +115,7 @@ export default function TaskManagement() {
         body: JSON.stringify({
           title,
           description,
-          assigned_to: assignedTo,
+          assigned_to: selectedStaff,
           due_date: dueDate || null,
         }),
       });
@@ -118,9 +128,9 @@ export default function TaskManagement() {
 
       setTitle("");
       setDescription("");
-      setAssignedTo("");
+      setSelectedStaff([]);
       setDueDate("");
-      setMessage("Task successfully assign ho gaya!");
+      setMessage("Task successfully multiple Staff ko assign ho gaya!");
 
       await loadData();
     } catch (error) {
@@ -145,19 +155,11 @@ export default function TaskManagement() {
           Task Management
         </h2>
         <p style={{ color: "#64748b", marginTop: 7 }}>
-          Staff members ko tasks assign aur manage karein.
+          Ek task multiple Staff members ko assign karein.
         </p>
       </div>
 
-      <div
-        style={{
-          background: "#ffffff",
-          padding: 24,
-          borderRadius: 15,
-          border: "1px solid #e2e8f0",
-          marginBottom: 25,
-        }}
-      >
+      <div style={cardStyle}>
         <h3 style={{ fontSize: 18, marginTop: 0, marginBottom: 20 }}>
           Assign New Task
         </h3>
@@ -187,25 +189,33 @@ export default function TaskManagement() {
             </div>
 
             <div>
-              <label style={labelStyle}>Assign To Staff *</label>
-              <select
-                required
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Staff select karein</option>
+              <label style={labelStyle}>
+                Assign To Staff * ({selectedStaff.length} selected)
+              </label>
+
+              <div style={staffListStyle}>
                 {staff.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.username}
-                  </option>
+                  <label key={member.id} style={staffOptionStyle}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStaff.includes(member.id)}
+                      onChange={() => toggleStaff(member.id)}
+                      style={{ width: 17, height: 17 }}
+                    />
+                    <span>{member.username}</span>
+                  </label>
                 ))}
-              </select>
-              {staff.length === 0 && !loading && (
-                <p style={{ color: "#dc2626", fontSize: 13 }}>
-                  Abhi koi Staff account available nahi hai.
-                </p>
-              )}
+
+                {staff.length === 0 && !loading && (
+                  <p style={{ color: "#dc2626", fontSize: 13 }}>
+                    Abhi koi Staff account available nahi hai.
+                  </p>
+                )}
+              </div>
+
+              <p style={{ fontSize: 12, color: "#64748b" }}>
+                Aap ek ya multiple Staff members select kar sakte hain.
+              </p>
             </div>
 
             <div>
@@ -220,7 +230,7 @@ export default function TaskManagement() {
 
             <button
               type="submit"
-              disabled={saving || staff.length === 0}
+              disabled={saving || selectedStaff.length === 0}
               style={{
                 background: "#1d4ed8",
                 color: "white",
@@ -229,7 +239,7 @@ export default function TaskManagement() {
                 borderRadius: 9,
                 fontWeight: 700,
                 cursor: "pointer",
-                opacity: saving || staff.length === 0 ? 0.6 : 1,
+                opacity: saving || selectedStaff.length === 0 ? 0.6 : 1,
               }}
             >
               {saving ? "Assigning..." : "Assign Task"}
@@ -238,20 +248,11 @@ export default function TaskManagement() {
         </form>
 
         {message && (
-          <p style={{ marginTop: 15, fontWeight: 600 }}>
-            {message}
-          </p>
+          <p style={{ marginTop: 15, fontWeight: 600 }}>{message}</p>
         )}
       </div>
 
-      <div
-        style={{
-          background: "#ffffff",
-          padding: 24,
-          borderRadius: 15,
-          border: "1px solid #e2e8f0",
-        }}
-      >
+      <div style={cardStyle}>
         <div
           style={{
             display: "flex",
@@ -265,11 +266,7 @@ export default function TaskManagement() {
             Assigned Tasks ({tasks.length})
           </h3>
 
-          <button
-            onClick={loadData}
-            disabled={loading}
-            style={refreshStyle}
-          >
+          <button onClick={loadData} disabled={loading} style={refreshStyle}>
             {loading ? "Loading..." : "Refresh"}
           </button>
         </div>
@@ -282,70 +279,66 @@ export default function TaskManagement() {
           </p>
         ) : (
           <div style={{ display: "grid", gap: 13 }}>
-            {tasks.map((task) => {
-              const assignedStaff = staff.find(
-                (member) => member.id === task.assigned_to
-              );
-
-              return (
+            {tasks.map((task) => (
+              <div key={task.id} style={taskStyle}>
                 <div
-                  key={task.id}
                   style={{
-                    padding: 18,
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 11,
-                    background: "#f8fafc",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 10,
                   }}
                 >
-                  <div
+                  <strong style={{ fontSize: 16 }}>{task.title}</strong>
+
+                  <span
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 10,
+                      color: statusColors[task.status] || "#64748b",
+                      background: "#ffffff",
+                      padding: "5px 10px",
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 700,
                     }}
                   >
-                    <strong style={{ fontSize: 16 }}>
-                      {task.title}
-                    </strong>
-
-                    <span
-                      style={{
-                        color: statusColors[task.status] || "#64748b",
-                        background: "#ffffff",
-                        padding: "5px 10px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {task.status.replace("_", " ").toUpperCase()}
-                    </span>
-                  </div>
-
-                  {task.description && (
-                    <p style={{ color: "#64748b", marginBottom: 10 }}>
-                      {task.description}
-                    </p>
-                  )}
-
-                  <p style={{ fontSize: 13, color: "#475569", margin: 0 }}>
-                    Assigned to: {assignedStaff?.username || "Staff"}
-                  </p>
-
-                  <p style={{ fontSize: 13, color: "#64748b", marginBottom: 0 }}>
-                    Deadline: {task.due_date || "Not specified"}
-                  </p>
+                    {task.status.replace("_", " ").toUpperCase()}
+                  </span>
                 </div>
-              );
-            })}
+
+                {task.description && (
+                  <p style={{ color: "#64748b", marginBottom: 10 }}>
+                    {task.description}
+                  </p>
+                )}
+
+                <p style={{ fontSize: 13, color: "#475569", margin: 0 }}>
+                  Assigned to:{" "}
+                  {task.assignees?.length
+                    ? task.assignees.map((person) => person.username).join(", ")
+                    : staff.find((member) => member.id === task.assigned_to)
+                        ?.username || "Staff"}
+                </p>
+
+                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 0 }}>
+                  Deadline: {task.due_date || "Not specified"}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+const cardStyle: React.CSSProperties = {
+  background: "#ffffff",
+  padding: 24,
+  borderRadius: 15,
+  border: "1px solid #e2e8f0",
+  marginBottom: 25,
+};
 
 const labelStyle: React.CSSProperties = {
   display: "block",
@@ -365,6 +358,35 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   background: "#ffffff",
   color: "#1e293b",
+};
+
+const staffListStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 10,
+  padding: 14,
+  border: "1px solid #cbd5e1",
+  borderRadius: 8,
+  maxHeight: 220,
+  overflowY: "auto",
+};
+
+const staffOptionStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  padding: 9,
+  background: "#f8fafc",
+  borderRadius: 7,
+  cursor: "pointer",
+  fontSize: 14,
+};
+
+const taskStyle: React.CSSProperties = {
+  padding: 18,
+  border: "1px solid #e2e8f0",
+  borderRadius: 11,
+  background: "#f8fafc",
 };
 
 const refreshStyle: React.CSSProperties = {
