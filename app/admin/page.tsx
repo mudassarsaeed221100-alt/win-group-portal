@@ -4,10 +4,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import TaskManagement from "./TaskManagement";
 
 type Section =
   | "Overview"
   | "Staff Management"
+  | "Task Management"
   | "Departments"
   | "Business Records"
   | "Reports"
@@ -160,6 +162,7 @@ export default function AdminDashboard() {
   const menuItems: { name: Section; icon: string }[] = [
     { name: "Overview", icon: "◫" },
     { name: "Staff Management", icon: "♙" },
+    { name: "Task Management", icon: "✓" },
     { name: "Departments", icon: "▦" },
     { name: "Business Records", icon: "▤" },
     { name: "Reports", icon: "▥" },
@@ -303,6 +306,14 @@ export default function AdminDashboard() {
 
                   <button
                     className="quick-action"
+                    onClick={() => openSection("Task Management")}
+                  >
+                    <strong>✓ Assign Staff Task</strong>
+                    <span>→</span>
+                  </button>
+
+                  <button
+                    className="quick-action"
                     onClick={() => openSection("Settings")}
                   >
                     <strong>⚙ Account Settings</strong>
@@ -434,6 +445,10 @@ export default function AdminDashboard() {
                 )}
               </div>
             </>
+          )}
+
+          {activeSection === "Task Management" && (
+            <TaskManagement />
           )}
 
           {activeSection === "Departments" && (
