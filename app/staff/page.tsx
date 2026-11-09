@@ -1,14 +1,26 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "pending" | "in_progress" | "completed";
+  due_date: string | null;
+  created_at: string;
+};
+
 export default function StaffDashboard() {
   const router = useRouter();
+
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskLoading, setTaskLoading] = useState(false);
+  const [taskError, setTaskError] = useState("");
 
   useEffect(() => {
     async function checkStaff() {
@@ -33,10 +45,46 @@ export default function StaffDashboard() {
 
       setUsername(profile.username);
       setLoading(false);
+      loadTasks();
     }
 
     checkStaff();
   }, [router]);
+
+  async function loadTasks() {
+    setTaskLoading(true);
+    setTaskError("");
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      setTaskError("Session expired. Please login again.");
+      setTaskLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/tasks", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Tasks load nahi ho sake.");
+      }
+
+      setTasks(result.tasks || []);
+    } catch (error) {
+      setTaskError(
+        error instanceof Error ? error.message : "Something went wrong."
+      );
+    } finally {
+      setTaskLoading(false);
+    }
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -85,7 +133,6 @@ export default function StaffDashboard() {
       fontFamily: "Arial, sans-serif",
       color: "#172033",
     }}>
-
       <header style={{
         background: "#101d35",
         color: "white",
@@ -128,7 +175,6 @@ export default function StaffDashboard() {
         margin: "auto",
         padding: "35px 5%",
       }}>
-
         <section style={{
           background: "linear-gradient(120deg, #172c50, #2457a5)",
           color: "white",
@@ -145,10 +191,7 @@ export default function StaffDashboard() {
             STAFF WORKSPACE
           </p>
 
-          <h2 style={{
-            fontSize: 30,
-            margin: "0 0 12px",
-          }}>
+          <h2 style={{ fontSize: 30, margin: "0 0 12px" }}>
             Welcome, {username}!
           </h2>
 
@@ -232,7 +275,99 @@ export default function StaffDashboard() {
                 fontSize: 12,
                 fontWeight: "bold",
               }}>
-                COMING SOON
+                {card.title === "My Tasks"
+                  ? `${tasks.length} ASSIGNED TASKS`
+                  : "COMING SOON"}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section style={{
+          marginTop: 30,
+          background: "white",
+          border: "1px solid #e8edf5",
+          borderRadius: 14,
+          padding: 25,
+        }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+          }}>
+            <div>
+              <h2 style={{ margin: 0 }}>My Tasks</h2>
+              <p style={{ color: "#718096", fontSize: 13 }}>
+                Tasks assigned to your account.
+              </p>
+            </div>
+
+            <button onClick={loadTasks} disabled={taskLoading} style={{
+              background: "#2457a5",
+              color: "white",
+              border: "none",
+              padding: "10px 18px",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}>
+              {taskLoading ? "Loading..." : "Refresh Tasks"}
+            </button>
+          </div>
+
+          {taskError && (
+            <p style={{ color: "#dc2626" }}>{taskError}</p>
+          )}
+
+          {taskLoading && (
+            <p style={{ color: "#718096" }}>Loading your tasks...</p>
+          )}
+
+          {!taskLoading && !taskError && tasks.length === 0 && (
+            <p style={{
+              padding: 20,
+              background: "#f4f7fb",
+              borderRadius: 10,
+              color: "#718096",
+              textAlign: "center",
+            }}>
+              No tasks assigned yet.
+            </p>
+          )}
+
+          {!taskLoading && tasks.map((task) => (
+            <div key={task.id} style={{
+              border: "1px solid #e8edf5",
+              borderRadius: 12,
+              padding: 18,
+              marginTop: 15,
+            }}>
+              <h3 style={{ margin: "0 0 10px" }}>
+                {task.title}
+              </h3>
+
+              <p style={{
+                color: "#718096",
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}>
+                {task.description || "No description provided."}
+              </p>
+
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 15,
+                fontSize: 13,
+              }}>
+                <span>
+                  Status: <strong>{task.status.replace("_", " ")}</strong>
+                </span>
+
+                <span>
+                  Due Date: <strong>{task.due_date || "Not set"}</strong>
+                </span>
               </div>
             </div>
           ))}
@@ -254,26 +389,18 @@ export default function StaffDashboard() {
             gap: 15,
           }}>
             <div>
-              <p style={{ color: "#718096", fontSize: 12 }}>
-                USERNAME
-              </p>
+              <p style={{ color: "#718096", fontSize: 12 }}>USERNAME</p>
               <strong>{username}</strong>
             </div>
 
             <div>
-              <p style={{ color: "#718096", fontSize: 12 }}>
-                ACCOUNT ROLE
-              </p>
+              <p style={{ color: "#718096", fontSize: 12 }}>ACCOUNT ROLE</p>
               <strong>Staff Member</strong>
             </div>
 
             <div>
-              <p style={{ color: "#718096", fontSize: 12 }}>
-                ACCOUNT STATUS
-              </p>
-              <strong style={{ color: "#059669" }}>
-                Active
-              </strong>
+              <p style={{ color: "#718096", fontSize: 12 }}>ACCOUNT STATUS</p>
+              <strong style={{ color: "#059669 }}>Active</strong>
             </div>
           </div>
         </section>
@@ -288,7 +415,6 @@ export default function StaffDashboard() {
           © 2026 WIN GROUP. All Rights Reserved.
           <p>Grow Together. Achieve Together.</p>
         </footer>
-
       </div>
     </main>
   );
