@@ -8,6 +8,9 @@ import UserManagement from "./UserManagement";
 import ProfileSettings from "./ProfileSettings";
 import Departments from "./Departments";
 import BusinessRecords from "./BusinessRecords";
+import Reports from "./Reports";
+import ActivityLogs from "./ActivityLogs";
+import Security from "./Security";
 
 const menuItems = [
   "Overview",
@@ -346,6 +349,12 @@ export default function Dashboard() {
           <Departments />
         ) : activeMenu === "Business Records" ? (
           <BusinessRecords />
+        ) : activeMenu === "Reports" ? (
+          <Reports />
+        ) : activeMenu === "Activity Logs" ? (
+          <ActivityLogs />
+        ) : activeMenu === "Security" ? (
+          <Security />
         ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
