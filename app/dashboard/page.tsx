@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import UserManagement from "./UserManagement";
 import ProfileSettings from "./ProfileSettings";
+import Departments from "./Departments";
 
 const menuItems = [
   "Overview",
@@ -340,6 +340,8 @@ export default function Dashboard() {
           <ProfileSettings />
         ) : activeMenu === "User Management" ? (
           <UserManagement />
+        ) : activeMenu === "Departments" ? (
+          <Departments />
         ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
