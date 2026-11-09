@@ -43,6 +43,7 @@ export default function Dashboard() {
 
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [activeMenu, setActiveMenu] = useState("Overview");
   const [loading, setLoading] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -64,7 +65,7 @@ export default function Dashboard() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("first_name, surname, role")
+        .select("first_name, surname, avatar_url, role")
         .eq("id", user.id)
         .single();
 
@@ -75,6 +76,7 @@ export default function Dashboard() {
 
       setFirstName(data.first_name || "");
       setSurname(data.surname || "");
+      setAvatarUrl(data.avatar_url || "");
       setLoading(false);
     }
 
@@ -90,6 +92,18 @@ export default function Dashboard() {
     setActiveMenu(item);
     setProfileMenuOpen(false);
     setProfileSettingsOpen(true);
+  }
+
+  function ProfileAvatar({ className }: { className: string }) {
+    return (
+      <div className={className}>
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="Founder Profile" />
+        ) : (
+          firstName.charAt(0).toUpperCase() || "F"
+        )}
+      </div>
+    );
   }
 
   if (loading) {
@@ -134,9 +148,7 @@ export default function Dashboard() {
         </div>
 
         <div className="profile">
-          <div className="avatar">
-            {firstName.charAt(0).toUpperCase() || "F"}
-          </div>
+          <ProfileAvatar className="avatar" />
           <div className="profile-info">
             <strong>{displayName}</strong>
             <small>Founder / Owner</small>
@@ -230,9 +242,7 @@ export default function Dashboard() {
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                 aria-label="Open profile menu"
               >
-                <div className="top-avatar">
-                  {firstName.charAt(0).toUpperCase() || "F"}
-                </div>
+                <ProfileAvatar className="top-avatar" />
                 <div className="top-user">
                   <strong>{displayName}</strong>
                   <small>Founder / Owner</small>
@@ -246,8 +256,11 @@ export default function Dashboard() {
             {profileMenuOpen && (
               <div className="profile-dropdown">
                 <div className="dropdown-heading">
-                  <strong>{displayName}</strong>
-                  <small>Founder / Owner</small>
+                  <ProfileAvatar className="dropdown-avatar" />
+                  <div>
+                    <strong>{displayName}</strong>
+                    <small>Founder / Owner</small>
+                  </div>
                 </div>
                 <button onClick={() => openProfilePage("Profile Edit")}>
                   <span>◉</span> Profile Edit
@@ -426,6 +439,10 @@ export default function Dashboard() {
           background: linear-gradient(145deg,#f1f1f1,#8c8c8c); color: #101010;
           border: 2px solid white; border-radius: 50%; width: 43px; height: 43px;
           display: grid; place-items: center; font-weight: bold; font-size: 20px; flex-shrink: 0;
+          overflow: hidden;
+        }
+        .avatar img,.top-avatar img,.dropdown-avatar img {
+          width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
         }
         .profile-info { min-width: 0; }
         .profile strong,.profile small { display: block; }
@@ -471,10 +488,11 @@ export default function Dashboard() {
         .top-user small { color: #888; font-size: 10px; margin-top: 4px; }
         .dropdown-arrow { color: #aaa; font-size: 9px; }
         .profile-dropdown { position: absolute; z-index: 20; top: calc(100% + 12px); right: 0; width: 220px; padding: 9px; background: #1c1c1c; border: 1px solid #484848; border-radius: 9px; box-shadow: 0 12px 30px #0009; }
-        .dropdown-heading { padding: 10px; border-bottom: 1px solid #383838; margin-bottom: 6px; }
+        .dropdown-heading { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #383838; margin-bottom: 6px; }
         .dropdown-heading strong,.dropdown-heading small { display: block; }
         .dropdown-heading strong { color: white; font-size: 12px; }
         .dropdown-heading small { color: #999; font-size: 10px; margin-top: 5px; }
+        .dropdown-avatar { width: 38px; height: 38px; border-radius: 50%; border: 1px solid white; overflow: hidden; display: grid; place-items: center; flex-shrink: 0; background: #ddd; color: #111; font-weight: bold; }
         .profile-dropdown button { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent; color: #ddd; padding: 11px 10px; border-radius: 6px; text-align: left; cursor: pointer; font-size: 12px; }
         .profile-dropdown button:hover { background: #333; color: white; }
         .profile-dropdown .dropdown-logout { border-top: 1px solid #383838; border-radius: 0; margin-top: 5px; color: #f0a0a0; }
