@@ -1,13 +1,19 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    const token = request.headers
+      .get("authorization")
+      ?.replace("Bearer ", "");
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const supabase = createClient(
@@ -19,12 +25,17 @@ export async function GET(request: NextRequest) {
       await supabase.auth.getUser(token);
 
     if (authError || !authData.user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, username, role, first_name, surname, avatar_url, phone, phone_verified")
+      .select(
+        "id, username, role, first_name, surname, avatar_url, phone, phone_verified"
+      )
       .eq("id", authData.user.id)
       .single();
 
@@ -36,6 +47,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Profile GET error:", error);
+
     return NextResponse.json(
       { error: "Profile load nahi ho saka" },
       { status: 500 }
@@ -45,10 +57,15 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    const token = request.headers
+      .get("authorization")
+      ?.replace("Bearer ", "");
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const supabase = createClient(
@@ -60,17 +77,24 @@ export async function PATCH(request: NextRequest) {
       await supabase.auth.getUser(token);
 
     if (authError || !authData.user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
-    const { data: caller, error: callerError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, role")
-      .eq("id", authData.user.id)
-      .single();
+    const { data: caller, error: callerError } =
+      await supabaseAdmin
+        .from("profiles")
+        .select("id, role")
+        .eq("id", authData.user.id)
+        .single();
 
     if (callerError || caller?.role !== "founder_owner") {
-      return NextResponse.json({ error: "Founder access required" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Founder access required" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -79,22 +103,39 @@ export async function PATCH(request: NextRequest) {
     const surname = String(body.surname ?? "").trim();
     const phone = String(body.phone ?? "").trim();
 
-    if (first_name.length > 80 || surname.length > 80 || phone.length > 25) {
-      return NextResponse.json({ error: "Details bohat lambi hain" }, { status: 400 });
+    if (
+      first_name.length > 80 ||
+      surname.length > 80 ||
+      phone.length > 25
+    ) {
+      return NextResponse.json(
+        { error: "Details bohat lambi hain" },
+        { status: 400 }
+      );
     }
 
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .update({ first_name, surname, phone })
+      .update({
+        first_name,
+        surname,
+        phone,
+      })
       .eq("id", authData.user.id)
-      .select("id, username, role, first_name, surname, avatar_url, phone, phone_verified")
+      .select(
+        "id, username, role, first_name, surname, avatar_url, phone, phone_verified"
+      )
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, profile: data });
+    return NextResponse.json({
+      success: true,
+      profile: data,
+    });
   } catch (error) {
     console.error("Profile PATCH error:", error);
+
     return NextResponse.json(
       { error: "Profile update nahi ho saki" },
       { status: 500 }
