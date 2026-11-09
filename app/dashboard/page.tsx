@@ -1,5 +1,5 @@
 
-"use client";
+"use client";pathan 
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
