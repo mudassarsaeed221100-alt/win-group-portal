@@ -48,8 +48,12 @@ export default function Home() {
         router.replace("/dashboard");
       } else if (profile.role === "super_admin") {
         router.replace("/super-admin");
+      } else if (profile.role === "admin") {
+        router.replace("/admin");
+      } else if (profile.role === "staff") {
+        router.replace("/staff");
       } else {
-        setError("Your dashboard is not ready yet. Please contact Founder.");
+        setError("Your account role is not authorized.");
         await supabase.auth.signOut();
       }
     } catch {
