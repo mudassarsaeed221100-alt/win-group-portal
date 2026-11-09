@@ -89,11 +89,16 @@ export async function PATCH(request: NextRequest) {
     const first_name = String(body.first_name ?? "").trim();
     const surname = String(body.surname ?? "").trim();
     const phone = String(body.phone ?? "").trim();
+    const avatar_url =
+      body.avatar_url === undefined
+        ? undefined
+        : String(body.avatar_url ?? "").trim();
 
     if (
       first_name.length > 80 ||
       surname.length > 80 ||
-      phone.length > 25
+      phone.length > 25 ||
+      (avatar_url !== undefined && avatar_url.length > 1000)
     ) {
       return NextResponse.json(
         { error: "Details bohat lambi hain" },
@@ -101,9 +106,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const updates: Record<string, string> = {
+      first_name,
+      surname,
+      phone,
+    };
+
+    if (avatar_url !== undefined) {
+      updates.avatar_url = avatar_url;
+    }
+
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .update({ first_name, surname, phone })
+      .update(updates)
       .eq("id", authData.user.id)
       .select(
         "id, username, role, first_name, surname, avatar_url, phone, phone_verified"
