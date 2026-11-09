@@ -2,11 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
-const allowedRoles = [
-  "super_admin",
-  "admin",
-  "staff",
-];
+const rolePermissions: Record<string, string[]> = {
+  founder_owner: ["super_admin", "admin", "staff"],
+  super_admin: ["staff"],
+  admin: ["staff"],
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,13 +41,9 @@ export async function POST(request: NextRequest) {
         .eq("id", user.id)
         .single();
 
-    if (
-      profileError ||
-      !profile ||
-      profile.role !== "founder_owner"
-    ) {
+    if (profileError || !profile) {
       return NextResponse.json(
-        { error: "Founder access required." },
+        { error: "Account profile not found." },
         { status: 403 }
       );
     }
@@ -55,7 +51,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, username, role } = body;
 
+    const permittedRoles = rolePermissions[profile.role];
+
     if (
+      !permittedRoles ||
       typeof email !== "string" ||
       typeof password !== "string" ||
       typeof username !== "string" ||
@@ -63,11 +62,11 @@ export async function POST(request: NextRequest) {
       !email.trim() ||
       !username.trim() ||
       password.length < 8 ||
-      !allowedRoles.includes(role)
+      !permittedRoles.includes(role)
     ) {
       return NextResponse.json(
-        { error: "Please provide valid account details." },
-        { status: 400 }
+        { error: "You do not have permission to create this account or the details are invalid." },
+        { status: 403 }
       );
     }
 
