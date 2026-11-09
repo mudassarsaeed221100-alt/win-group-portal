@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import UserManagement from "./UserManagement";
+
 const menuItems = [
   "Overview",
   "User Management",
@@ -15,6 +16,17 @@ const menuItems = [
   "Security",
   "System Settings",
 ];
+
+const menuIcons: Record<string, string> = {
+  Overview: "◆",
+  "User Management": "◈",
+  Departments: "▦",
+  "Business Records": "▤",
+  Reports: "▥",
+  "Activity Logs": "◷",
+  Security: "◇",
+  "System Settings": "⚙",
+};
 
 export default function Dashboard() {
   const router = useRouter();
@@ -59,133 +71,299 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return <main className="loading">Loading Founder Dashboard...</main>;
+    return (
+      <main className="loading">
+        <div className="loading-diamond">◆</div>
+        <h2>WIN GROUP</h2>
+        <p>Preparing Founder Portal...</p>
+
+        <style jsx>{`
+          .loading {
+            min-height: 100vh;
+            background: #090909;
+            color: #e8e8e8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+          }
+
+          .loading-diamond {
+            color: #d8d8d8;
+            font-size: 42px;
+            margin-bottom: 12px;
+          }
+
+          h2 {
+            letter-spacing: 5px;
+            margin: 0;
+          }
+
+          p {
+            color: #888;
+            font-size: 13px;
+          }
+        `}</style>
+      </main>
+    );
   }
 
   return (
     <main className="layout">
       <aside className="sidebar">
         <div className="brand">
+          <div className="brand-symbol">◆</div>
           <h2>WIN GROUP</h2>
-          <span>Wolf Independent National Group</span>
+          <span>WOLF INDEPENDENT</span>
+          <span>NATIONAL GROUP</span>
+          <div className="brand-line" />
+          <small>FOUNDER CONTROL CENTER</small>
         </div>
 
         <div className="profile">
           <div className="avatar">F</div>
-          <div>
+          <div className="profile-info">
             <strong>Founder / Owner</strong>
             <small>{username}</small>
+            <span className="online-indicator">
+              <i />
+              System Owner
+            </span>
           </div>
         </div>
 
-        <p className="menu-title">MAIN MENU</p>
+        <p className="menu-title">MAIN NAVIGATION</p>
 
         <nav>
           {menuItems.map((item) => (
             <button
               key={item}
-              className={activeMenu === item ? "menu active" : "menu"}
+              className={
+                activeMenu === item ? "menu active" : "menu"
+              }
               onClick={() => setActiveMenu(item)}
             >
-              {item === "Overview" ? "⌂" : "▣"} 
+              <span className="menu-icon">{menuIcons[item]}</span>
               <span>{item}</span>
+              {activeMenu === item && (
+                <span className="active-mark">◆</span>
+              )}
             </button>
           ))}
         </nav>
 
-        <button className="logout" onClick={logout}>
-          Logout
-        </button>
+        <div className="sidebar-bottom">
+          <div className="authority-card">
+            <span className="authority-icon">◆</span>
+            <div>
+              <strong>Founder Authority</strong>
+              <small>Full System Access</small>
+            </div>
+          </div>
+
+          <button className="logout" onClick={logout}>
+            <span>↪</span>
+            Logout
+          </button>
+
+          <div className="sidebar-footer">
+            WIN GROUP MANAGEMENT
+            <span>SECURE FOUNDER PORTAL</span>
+          </div>
+        </div>
       </aside>
 
       <section className="content">
         <header className="topbar">
-          <div>
+          <div className="page-heading">
+            <div className="heading-label">
+              WIN GROUP / FOUNDER
+            </div>
             <h1>{activeMenu}</h1>
-            <p>WIN GROUP Management Portal</p>
+            <p>Founder / Owner Management Portal</p>
           </div>
+
           <div className="top-profile">
-            <div className="avatar small">F</div>
-            <strong>Founder</strong>
+            <div className="top-status">
+              <i />
+              System Active
+            </div>
+            <div className="top-avatar">F</div>
+            <div className="top-user">
+              <strong>Founder</strong>
+              <small>{username}</small>
+            </div>
           </div>
         </header>
 
         {activeMenu === "User Management" ? (
-  <UserManagement />
-) : activeMenu === "Overview" ? (
+          <UserManagement />
+        ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
-              <h2>Welcome, {username}</h2>
-              <p>
-                Your Founder / Owner control panel is ready.
-                Manage your organization from one place.
-              </p>
+              <div className="welcome-content">
+                <div className="welcome-label">
+                  ◆ &nbsp; FOUNDER CONTROL CENTER
+                </div>
+                <h2>Welcome, {username}</h2>
+                <p>
+                  Your organization. Your authority.
+                  Manage the entire WIN GROUP system
+                  from one secure control center.
+                </p>
+                <div className="welcome-tag">
+                  FOUNDER / OWNER
+                </div>
+              </div>
+
+              <div className="welcome-emblem">
+                <div className="emblem-outer">
+                  <div className="emblem-inner">◆</div>
+                </div>
+                <span>WIN GROUP</span>
+                <small>EST. MANAGEMENT</small>
+              </div>
             </div>
 
-            <h3 className="section-heading">Company Overview</h3>
+            <div className="section-title">
+              <div>
+                <span>ORGANIZATION</span>
+                <h3>Company Overview</h3>
+              </div>
+              <div className="overview-status">
+                <i />
+                Portal Connected
+              </div>
+            </div>
 
             <div className="stats">
               <div className="stat-card">
-                <span>Total Users</span>
+                <div className="stat-top">
+                  <span>Total Users</span>
+                  <div className="stat-icon">◈</div>
+                </div>
                 <h2>0</h2>
                 <small>Registered accounts</small>
               </div>
 
               <div className="stat-card">
-                <span>Departments</span>
+                <div className="stat-top">
+                  <span>Departments</span>
+                  <div className="stat-icon">▦</div>
+                </div>
                 <h2>0</h2>
                 <small>Company departments</small>
               </div>
 
               <div className="stat-card">
-                <span>Business Records</span>
+                <div className="stat-top">
+                  <span>Business Records</span>
+                  <div className="stat-icon">▤</div>
+                </div>
                 <h2>0</h2>
                 <small>Company records</small>
               </div>
 
               <div className="stat-card">
-                <span>System Status</span>
-                <h2 className="online">Active</h2>
+                <div className="stat-top">
+                  <span>System Status</span>
+                  <div className="stat-icon">◇</div>
+                </div>
+                <h2 className="online-text">Active</h2>
                 <small>Portal connected</small>
               </div>
             </div>
 
-            <div className="panel">
-              <h3>Management Structure</h3>
-              <div className="hierarchy">
-                <div className="level founder">
-                  Founder / Owner
-                  <small>Ultimate System Authority</small>
-                </div>
-                <div className="level">Boss</div>
-                <div className="level">Super Admin</div>
-                <div className="level">Admin</div>
-                <div className="level">Staff</div>
+            <div className="section-title structure-title">
+              <div>
+                <span>COMPANY HIERARCHY</span>
+                <h3>Management Structure</h3>
               </div>
             </div>
 
             <div className="panel">
-              <h3>Founder Authority</h3>
-              <p>
-                Founder / Owner has the highest level of control
-                over the WIN GROUP portal.
-              </p>
-              <ul>
-                <li>Manage organizational structure</li>
-                <li>Control user roles and permissions</li>
-                <li>Manage company records and reports</li>
-                <li>Monitor system activities</li>
-              </ul>
+              <div className="hierarchy">
+                <div className="level founder">
+                  <span className="level-symbol">◆</span>
+                  <div>
+                    <strong>Founder / Owner</strong>
+                    <small>Ultimate System Authority</small>
+                  </div>
+                  <span className="level-access">FULL ACCESS</span>
+                </div>
+
+                <div className="hierarchy-line" />
+
+                <div className="level">
+                  <span className="level-symbol">◈</span>
+                  <div>
+                    <strong>Super Admin</strong>
+                    <small>Complete Access to Own Team</small>
+                  </div>
+                </div>
+
+                <div className="hierarchy-line" />
+
+                <div className="level">
+                  <span className="level-symbol">◇</span>
+                  <div>
+                    <strong>Admin</strong>
+                    <small>Reports to Super Admin</small>
+                  </div>
+                </div>
+
+                <div className="hierarchy-line" />
+
+                <div className="level">
+                  <span className="level-symbol">○</span>
+                  <div>
+                    <strong>Staff</strong>
+                    <small>Reports to Admin</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="section-title">
+              <div>
+                <span>OWNER PRIVILEGES</span>
+                <h3>Founder Authority</h3>
+              </div>
+            </div>
+
+            <div className="panel authority-panel">
+              <div className="authority-heading">
+                <div className="authority-large">◆</div>
+                <div>
+                  <h3>Complete Organization Control</h3>
+                  <p>
+                    Founder / Owner has final authority
+                    over all teams, accounts and company operations.
+                  </p>
+                </div>
+              </div>
+
+              <div className="authority-grid">
+                <div>◆ &nbsp; Manage all teams</div>
+                <div>◆ &nbsp; Control user permissions</div>
+                <div>◆ &nbsp; Approve sensitive actions</div>
+                <div>◆ &nbsp; Manage payments</div>
+                <div>◆ &nbsp; Monitor company reports</div>
+                <div>◆ &nbsp; Control system security</div>
+              </div>
             </div>
           </>
         ) : (
           <div className="panel coming">
+            <div className="coming-icon">◆</div>
+            <span>FOUNDER MODULE</span>
             <h2>{activeMenu}</h2>
             <p>
               This section will be developed and connected
               to the database in the next development steps.
             </p>
-            <small>Founder / Owner access</small>
+            <small>Founder / Owner Full Access</small>
           </div>
         )}
       </section>
@@ -198,41 +376,62 @@ export default function Dashboard() {
         .layout {
           min-height: 100vh;
           display: flex;
-          background: #f3f6fa;
-          color: #182b45;
+          background: #101010;
+          color: #e9e9e9;
           font-family: Arial, sans-serif;
         }
 
-        .loading {
-          padding: 40px;
-          font-family: Arial;
-        }
-
         .sidebar {
-          width: 260px;
+          width: 270px;
           min-height: 100vh;
-          background: #102b50;
-          color: white;
+          background: linear-gradient(180deg, #080808, #141414);
+          color: #eeeeee;
           padding: 25px 17px;
           display: flex;
           flex-direction: column;
           flex-shrink: 0;
+          border-right: 1px solid #343434;
         }
 
         .brand {
-          padding: 5px 8px 25px;
-          border-bottom: 1px solid #ffffff25;
+          text-align: center;
+          padding: 8px 5px 23px;
+          border-bottom: 1px solid #333;
+        }
+
+        .brand-symbol {
+          color: #dedede;
+          font-size: 30px;
+          margin-bottom: 8px;
+          text-shadow: 0 0 18px #ffffff50;
         }
 
         .brand h2 {
-          margin: 0 0 7px;
-          font-size: 24px;
-          letter-spacing: 1px;
+          margin: 0 0 10px;
+          font-size: 23px;
+          letter-spacing: 4px;
+          color: #ffffff;
         }
 
         .brand span {
-          color: #c5d2e2;
-          font-size: 11px;
+          display: block;
+          color: #999999;
+          font-size: 9px;
+          letter-spacing: 2px;
+          margin-top: 4px;
+        }
+
+        .brand-line {
+          height: 1px;
+          width: 65px;
+          background: #a8a8a8;
+          margin: 15px auto;
+        }
+
+        .brand small {
+          color: #c7c7c7;
+          font-size: 9px;
+          letter-spacing: 2px;
         }
 
         .profile {
@@ -240,6 +439,26 @@ export default function Dashboard() {
           align-items: center;
           gap: 12px;
           padding: 23px 5px;
+          border-bottom: 1px solid #292929;
+        }
+
+        .avatar,
+        .top-avatar {
+          background: linear-gradient(145deg, #f1f1f1, #8c8c8c);
+          color: #101010;
+          border: 2px solid #ffffff;
+          border-radius: 50%;
+          width: 43px;
+          height: 43px;
+          display: grid;
+          place-items: center;
+          font-weight: bold;
+          font-size: 20px;
+          flex-shrink: 0;
+        }
+
+        .profile-info {
+          min-width: 0;
         }
 
         .profile strong,
@@ -248,32 +467,43 @@ export default function Dashboard() {
         }
 
         .profile strong {
-          font-size: 13px;
+          font-size: 12px;
+          color: #ffffff;
         }
 
         .profile small {
-          color: #c5d2e2;
+          color: #a6a6a6;
           margin-top: 5px;
           font-size: 11px;
+          overflow-wrap: anywhere;
         }
 
-        .avatar {
-          background: #ffffff;
-          color: #102b50;
+        .online-indicator {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #bdbdbd;
+          font-size: 10px;
+          margin-top: 8px;
+        }
+
+        .online-indicator i,
+        .top-status i,
+        .overview-status i {
+          display: inline-block;
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
-          width: 42px;
-          height: 42px;
-          display: grid;
-          place-items: center;
-          font-weight: bold;
-          font-size: 20px;
+          background: #79c99a;
+          box-shadow: 0 0 8px #79c99a80;
         }
 
         .menu-title {
-          color: #9fb2ca;
-          font-size: 10px;
+          color: #777777;
+          font-size: 9px;
+          letter-spacing: 2px;
           padding-left: 9px;
-          margin-top: 5px;
+          margin: 24px 0 12px;
         }
 
         nav {
@@ -285,189 +515,553 @@ export default function Dashboard() {
           display: flex;
           gap: 12px;
           align-items: center;
-          padding: 12px;
-          border: none;
+          padding: 13px 12px;
+          border: 1px solid transparent;
           border-radius: 7px;
-          color: #d9e3ef;
+          color: #b9b9b9;
           background: transparent;
           text-align: left;
           cursor: pointer;
-          font-size: 13px;
+          font-size: 12px;
+          transition: 0.2s ease;
+          width: 100%;
+        }
+
+        .menu:hover {
+          background: #242424;
+          color: white;
         }
 
         .menu.active {
-          color: white;
-          background: #24476f;
+          color: #ffffff;
+          background: linear-gradient(100deg, #303030, #1c1c1c);
+          border-color: #555555;
+          box-shadow: inset 3px 0 #d1d1d1;
+        }
+
+        .menu-icon {
+          width: 19px;
+          text-align: center;
+          font-size: 16px;
+          color: #d0d0d0;
+        }
+
+        .active-mark {
+          margin-left: auto;
+          font-size: 9px;
+          color: #ffffff;
+        }
+
+        .sidebar-bottom {
+          margin-top: auto;
+        }
+
+        .authority-card {
+          display: flex;
+          gap: 11px;
+          align-items: center;
+          padding: 13px 10px;
+          margin: 24px 0 15px;
+          background: #1b1b1b;
+          border: 1px solid #383838;
+          border-radius: 8px;
+        }
+
+        .authority-icon {
+          font-size: 19px;
+          color: #d7d7d7;
+        }
+
+        .authority-card strong,
+        .authority-card small {
+          display: block;
+        }
+
+        .authority-card strong {
+          font-size: 11px;
+          color: #eeeeee;
+        }
+
+        .authority-card small {
+          color: #929292;
+          font-size: 10px;
+          margin-top: 4px;
         }
 
         .logout {
-          margin-top: auto;
-          background: #ffffff;
-          color: #102b50;
+          width: 100%;
+          background: #e3e3e3;
+          color: #111111;
           border: none;
           padding: 13px;
           border-radius: 7px;
           cursor: pointer;
           font-weight: bold;
+          font-size: 12px;
+          transition: 0.2s;
+        }
+
+        .logout:hover {
+          background: #ffffff;
+        }
+
+        .logout span {
+          margin-right: 8px;
+          font-size: 16px;
+        }
+
+        .sidebar-footer {
+          text-align: center;
+          color: #747474;
+          font-size: 8px;
+          letter-spacing: 1.4px;
+          margin-top: 17px;
+          line-height: 1.8;
+        }
+
+        .sidebar-footer span {
+          display: block;
+          color: #555555;
+          font-size: 8px;
         }
 
         .content {
           flex: 1;
           min-width: 0;
-          padding: 30px;
+          padding: 28px 34px;
+          background:
+            radial-gradient(
+              ellipse at 85% 0%,
+              #242424 0%,
+              transparent 38%
+            ),
+            #101010;
         }
 
         .topbar {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-bottom: 1px solid #dce3ec;
-          padding-bottom: 20px;
+          border-bottom: 1px solid #353535;
+          padding-bottom: 21px;
           gap: 15px;
         }
 
+        .heading-label {
+          color: #999999;
+          font-size: 9px;
+          letter-spacing: 2px;
+          margin-bottom: 9px;
+        }
+
         .topbar h1 {
-          font-size: 24px;
+          font-size: 25px;
           margin: 0;
-          color: #102b50;
+          color: #ffffff;
+          letter-spacing: 0.5px;
         }
 
         .topbar p {
           margin: 6px 0 0;
-          color: #718096;
-          font-size: 12px;
+          color: #929292;
+          font-size: 11px;
         }
 
         .top-profile {
           display: flex;
           align-items: center;
-          gap: 9px;
-          font-size: 13px;
+          gap: 10px;
         }
 
-        .avatar.small {
-          width: 34px;
-          height: 34px;
+        .top-status {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          color: #a9a9a9;
+          font-size: 10px;
+          margin-right: 13px;
+        }
+
+        .top-avatar {
+          width: 36px;
+          height: 36px;
           font-size: 15px;
-          background: #102b50;
-          color: white;
+        }
+
+        .top-user strong,
+        .top-user small {
+          display: block;
+        }
+
+        .top-user strong {
+          color: #f2f2f2;
+          font-size: 11px;
+        }
+
+        .top-user small {
+          color: #888888;
+          font-size: 10px;
+          margin-top: 4px;
         }
 
         .welcome {
-          background: #102b50;
-          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          background:
+            radial-gradient(
+              circle at 85% 45%,
+              #55555555,
+              transparent 32%
+            ),
+            linear-gradient(115deg, #292929, #111111 72%);
+          border: 1px solid #555555;
           border-radius: 12px;
-          padding: 27px;
-          margin-top: 25px;
+          padding: 30px;
+          margin-top: 26px;
+          min-height: 205px;
+          box-shadow: 0 15px 35px #00000035;
+          overflow: hidden;
+        }
+
+        .welcome-label {
+          color: #c7c7c7;
+          font-size: 9px;
+          letter-spacing: 2px;
+          margin-bottom: 14px;
         }
 
         .welcome h2 {
-          margin: 0 0 9px;
-          font-size: 22px;
+          margin: 0 0 10px;
+          font-size: 27px;
+          color: #ffffff;
         }
 
         .welcome p {
-          color: #d3dfed;
+          color: #b6b6b6;
           margin: 0;
-          font-size: 13px;
-          line-height: 1.6;
+          font-size: 12px;
+          line-height: 1.8;
+          max-width: 510px;
         }
 
-        .section-heading {
+        .welcome-tag {
+          display: inline-block;
+          margin-top: 17px;
+          border: 1px solid #777777;
+          color: #e2e2e2;
+          padding: 7px 12px;
+          font-size: 9px;
+          letter-spacing: 1.5px;
+          border-radius: 4px;
+        }
+
+        .welcome-emblem {
+          min-width: 145px;
+          text-align: center;
+        }
+
+        .emblem-outer {
+          width: 91px;
+          height: 91px;
+          border: 1px solid #8c8c8c;
+          transform: rotate(45deg);
+          margin: 0 auto 20px;
+          display: grid;
+          place-items: center;
+          box-shadow: 0 0 24px #ffffff12;
+        }
+
+        .emblem-inner {
+          width: 65px;
+          height: 65px;
+          border: 1px solid #d0d0d0;
+          display: grid;
+          place-items: center;
+          color: #ffffff;
+          font-size: 33px;
+          transform: rotate(-45deg);
+        }
+
+        .welcome-emblem span,
+        .welcome-emblem small {
+          display: block;
+          letter-spacing: 2px;
+        }
+
+        .welcome-emblem span {
+          color: #e7e7e7;
+          font-size: 11px;
+        }
+
+        .welcome-emblem small {
+          color: #888888;
+          font-size: 8px;
+          margin-top: 6px;
+        }
+
+        .section-title {
+          display: flex;
+          justify-content: space-between;
+          align-items: end;
+          gap: 12px;
           margin: 30px 0 15px;
+        }
+
+        .section-title span {
+          color: #929292;
+          font-size: 9px;
+          letter-spacing: 2px;
+        }
+
+        .section-title h3 {
+          margin: 6px 0 0;
           font-size: 17px;
+          color: #f0f0f0;
+        }
+
+        .overview-status {
+          color: #aaaaaa;
+          font-size: 10px;
+          display: flex;
+          align-items: center;
+          gap: 7px;
         }
 
         .stats {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 15px;
+          gap: 14px;
         }
 
         .stat-card,
         .panel {
-          background: white;
-          border: 1px solid #e4eaf1;
-          border-radius: 10px;
-          padding: 20px;
+          background: linear-gradient(145deg, #202020, #171717);
+          border: 1px solid #383838;
+          border-radius: 9px;
+          padding: 19px;
+        }
+
+        .stat-card {
+          transition: 0.2s;
+        }
+
+        .stat-card:hover {
+          border-color: #777777;
+          transform: translateY(-2px);
+        }
+
+        .stat-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
         }
 
         .stat-card span {
-          color: #68788d;
-          font-size: 12px;
+          color: #aaaaaa;
+          font-size: 11px;
+        }
+
+        .stat-icon {
+          width: 31px;
+          height: 31px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #505050;
+          border-radius: 7px;
+          color: #e0e0e0;
+          font-size: 16px;
         }
 
         .stat-card h2 {
           font-size: 27px;
-          margin: 13px 0 7px;
-          color: #102b50;
+          margin: 15px 0 6px;
+          color: #ffffff;
         }
 
         .stat-card small {
-          color: #8592a3;
-          font-size: 11px;
+          color: #858585;
+          font-size: 10px;
         }
 
-        .online {
-          color: #16834b !important;
-          font-size: 21px !important;
+        .online-text {
+          color: #a8d9b6 !important;
+          font-size: 22px !important;
+        }
+
+        .structure-title {
+          margin-top: 31px;
         }
 
         .panel {
-          margin-top: 20px;
+          color: #bcbcbc;
           line-height: 1.7;
-          font-size: 13px;
-          color: #536277;
-        }
-
-        .panel h3,
-        .panel h2 {
-          color: #102b50;
-          margin-top: 0;
+          font-size: 12px;
         }
 
         .hierarchy {
           display: grid;
-          gap: 8px;
-          max-width: 500px;
-          margin: 18px auto 0;
-          text-align: center;
+          gap: 0;
+          max-width: 590px;
+          margin: 5px auto;
         }
 
         .level {
-          padding: 12px;
-          border: 1px solid #dce4ee;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          background: #202020;
+          border: 1px solid #424242;
           border-radius: 7px;
-          color: #102b50;
-          font-weight: bold;
-          background: #f8fafc;
+          padding: 13px 15px;
+          color: #ededed;
         }
 
         .level.founder {
-          background: #102b50;
-          color: white;
+          background: linear-gradient(110deg, #414141, #202020);
+          border-color: #a0a0a0;
+          color: #ffffff;
+        }
+
+        .level-symbol {
+          color: #d6d6d6;
+          font-size: 20px;
+          width: 24px;
+          text-align: center;
+        }
+
+        .level strong,
+        .level small {
+          display: block;
+        }
+
+        .level strong {
+          font-size: 12px;
         }
 
         .level small {
-          display: block;
-          font-weight: normal;
+          font-size: 10px;
+          color: #a0a0a0;
+          margin-top: 3px;
+        }
+
+        .level-access {
+          margin-left: auto;
+          border: 1px solid #858585;
+          border-radius: 4px;
+          padding: 4px 7px;
+          color: #eeeeee;
+          font-size: 8px;
+          letter-spacing: 1px;
+        }
+
+        .hierarchy-line {
+          height: 15px;
+          width: 1px;
+          background: #777777;
+          margin: 0 auto;
+        }
+
+        .authority-panel {
+          margin-bottom: 20px;
+        }
+
+        .authority-heading {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding-bottom: 17px;
+          border-bottom: 1px solid #3a3a3a;
+        }
+
+        .authority-large {
+          width: 46px;
+          height: 46px;
+          display: grid;
+          place-items: center;
+          color: #eeeeee;
+          border: 1px solid #777777;
+          border-radius: 8px;
+          font-size: 23px;
+          flex-shrink: 0;
+        }
+
+        .authority-heading h3 {
+          color: #f0f0f0;
+          font-size: 14px;
+          margin: 0 0 5px;
+        }
+
+        .authority-heading p {
+          color: #999999;
+          margin: 0;
           font-size: 11px;
-          margin-top: 4px;
-          color: #d3dfed;
+        }
+
+        .authority-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 13px;
+          margin-top: 18px;
+          color: #c9c9c9;
+          font-size: 11px;
         }
 
         .coming {
           margin-top: 30px;
-          padding: 35px;
+          padding: 45px 30px;
+          text-align: center;
         }
 
-        @media (max-width: 900px) {
+        .coming-icon {
+          font-size: 35px;
+          color: #d5d5d5;
+          margin-bottom: 14px;
+        }
+
+        .coming > span {
+          color: #999999;
+          font-size: 9px;
+          letter-spacing: 2px;
+        }
+
+        .coming h2 {
+          color: #ffffff;
+          font-size: 23px;
+          margin: 12px 0;
+        }
+
+        .coming p {
+          color: #aaaaaa;
+          font-size: 12px;
+        }
+
+        .coming small {
+          display: inline-block;
+          margin-top: 12px;
+          color: #d0d0d0;
+          border: 1px solid #555555;
+          padding: 7px 12px;
+          border-radius: 4px;
+        }
+
+        @media (max-width: 1050px) {
+          .sidebar {
+            width: 245px;
+          }
+
+          .content {
+            padding: 24px;
+          }
+
           .stats {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
 
-        @media (max-width: 650px) {
+        @media (max-width: 700px) {
           .layout {
             flex-direction: column;
           }
@@ -475,31 +1069,165 @@ export default function Dashboard() {
           .sidebar {
             width: 100%;
             min-height: auto;
+            padding: 17px;
+          }
+
+          .brand {
+            padding-bottom: 16px;
+          }
+
+          .brand-symbol {
+            font-size: 24px;
+          }
+
+          .brand h2 {
+            font-size: 20px;
+          }
+
+          .profile {
+            padding: 14px 4px;
+          }
+
+          .menu-title {
+            margin-top: 16px;
           }
 
           nav {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
           }
 
-          .logout {
-            margin-top: 18px;
+          .menu {
+            padding: 11px 8px;
+            gap: 8px;
+            font-size: 11px;
+          }
+
+          .sidebar-bottom {
+            margin-top: 15px;
+          }
+
+          .authority-card {
+            margin: 10px 0;
+          }
+
+          .sidebar-footer {
+            display: none;
           }
 
           .content {
-            padding: 18px;
+            padding: 17px;
+          }
+
+          .topbar {
+            align-items: flex-start;
           }
 
           .topbar h1 {
             font-size: 20px;
           }
 
+          .top-status {
+            display: none;
+          }
+
+          .top-user {
+            display: none;
+          }
+
+          .welcome {
+            padding: 22px 18px;
+            min-height: 175px;
+          }
+
+          .welcome h2 {
+            font-size: 21px;
+            overflow-wrap: anywhere;
+          }
+
+          .welcome p {
+            font-size: 11px;
+          }
+
+          .welcome-emblem {
+            min-width: 75px;
+          }
+
+          .emblem-outer {
+            width: 57px;
+            height: 57px;
+          }
+
+          .emblem-inner {
+            width: 41px;
+            height: 41px;
+            font-size: 22px;
+          }
+
+          .welcome-emblem span {
+            font-size: 8px;
+          }
+
+          .welcome-emblem small {
+            font-size: 6px;
+          }
+
           .stats {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 9px;
           }
 
           .stat-card {
-            padding: 14px;
+            padding: 13px;
+          }
+
+          .stat-card h2 {
+            font-size: 23px;
+          }
+
+          .stat-card span {
+            font-size: 10px;
+          }
+
+          .section-title h3 {
+            font-size: 15px;
+          }
+
+          .level {
+            padding: 11px 9px;
+            gap: 8px;
+          }
+
+          .level strong {
+            font-size: 11px;
+          }
+
+          .level small {
+            font-size: 9px;
+          }
+
+          .level-access {
+            font-size: 7px;
+            padding: 3px 4px;
+          }
+
+          .authority-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .welcome-emblem {
+            display: none;
+          }
+
+          .stats {
+            grid-template-columns: 1fr;
+          }
+
+          .overview-status {
+            font-size: 9px;
           }
         }
       `}</style>
