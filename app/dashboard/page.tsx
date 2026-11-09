@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import UserManagement from "./UserManagement";
+import ProfileSettings from "./ProfileSettings";
 
 const menuItems = [
   "Overview",
@@ -28,12 +29,23 @@ const menuIcons: Record<string, string> = {
   "System Settings": "⚙",
 };
 
+const profileItems = [
+  "Profile Edit",
+  "Change Mobile Number",
+  "Change Email",
+  "Change Username",
+  "Change Password",
+  "Forgot Password",
+];
+
 export default function Dashboard() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [activeMenu, setActiveMenu] = useState("Overview");
   const [loading, setLoading] = useState(true);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -70,6 +82,12 @@ export default function Dashboard() {
     router.replace("/");
   }
 
+  function openProfilePage(item: string) {
+    setActiveMenu(item);
+    setProfileMenuOpen(false);
+    setProfileSettingsOpen(true);
+  }
+
   if (loading) {
     return (
       <main className="loading">
@@ -88,18 +106,15 @@ export default function Dashboard() {
             justify-content: center;
             font-family: Arial, sans-serif;
           }
-
           .loading-diamond {
-            color: #d8d8d8;
+            color: #dedede;
             font-size: 42px;
             margin-bottom: 12px;
           }
-
           h2 {
             letter-spacing: 5px;
             margin: 0;
           }
-
           p {
             color: #888;
             font-size: 13px;
@@ -139,10 +154,11 @@ export default function Dashboard() {
           {menuItems.map((item) => (
             <button
               key={item}
-              className={
-                activeMenu === item ? "menu active" : "menu"
-              }
-              onClick={() => setActiveMenu(item)}
+              className={activeMenu === item ? "menu active" : "menu"}
+              onClick={() => {
+                setActiveMenu(item);
+                setProfileMenuOpen(false);
+              }}
             >
               <span className="menu-icon">{menuIcons[item]}</span>
               <span>{item}</span>
@@ -152,6 +168,40 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
+
+        <div className="profile-settings-menu">
+          <button
+            className={
+              profileItems.includes(activeMenu)
+                ? "menu active"
+                : "menu"
+            }
+            onClick={() => setProfileSettingsOpen(!profileSettingsOpen)}
+          >
+            <span className="menu-icon">⚙</span>
+            <span>Profile Settings</span>
+            <span className="folder-arrow">
+              {profileSettingsOpen ? "−" : "+"}
+            </span>
+          </button>
+
+          {profileSettingsOpen && (
+            <div className="profile-submenu">
+              {profileItems.map((item) => (
+                <button
+                  key={item}
+                  className={activeMenu === item ? "menu active" : "menu"}
+                  onClick={() => openProfilePage(item)}
+                >
+                  <span>{item}</span>
+                  {activeMenu === item && (
+                    <span className="active-mark">◆</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="sidebar-bottom">
           <div className="authority-card">
@@ -184,20 +234,64 @@ export default function Dashboard() {
             <p>Founder / Owner Management Portal</p>
           </div>
 
-          <div className="top-profile">
-            <div className="top-status">
-              <i />
-              System Active
+          <div className="top-profile-area">
+            <div className="top-profile">
+              <div className="top-status">
+                <i />
+                System Active
+              </div>
+
+              <button
+                className="profile-trigger"
+                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                aria-label="Open profile menu"
+              >
+                <div className="top-avatar">F</div>
+                <div className="top-user">
+                  <strong>Founder</strong>
+                  <small>{username}</small>
+                </div>
+                <span className="dropdown-arrow">
+                  {profileMenuOpen ? "▲" : "▼"}
+                </span>
+              </button>
             </div>
-            <div className="top-avatar">F</div>
-            <div className="top-user">
-              <strong>Founder</strong>
-              <small>{username}</small>
-            </div>
+
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <div className="dropdown-heading">
+                  <strong>Founder Account</strong>
+                  <small>{username}</small>
+                </div>
+
+                <button onClick={() => openProfilePage("Profile Edit")}>
+                  <span>◉</span>
+                  Profile Edit
+                </button>
+
+                <button
+                  onClick={() => {
+                    setProfileSettingsOpen(true);
+                    setActiveMenu("Change Password");
+                    setProfileMenuOpen(false);
+                  }}
+                >
+                  <span>◇</span>
+                  Profile Settings
+                </button>
+
+                <button className="dropdown-logout" onClick={logout}>
+                  <span>↪</span>
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
-        {activeMenu === "User Management" ? (
+        {activeMenu === "Profile Edit" ? (
+          <ProfileSettings />
+        ) : activeMenu === "User Management" ? (
           <UserManagement />
         ) : activeMenu === "Overview" ? (
           <>
@@ -354,6 +448,17 @@ export default function Dashboard() {
               </div>
             </div>
           </>
+        ) : profileItems.includes(activeMenu) ? (
+          <div className="panel coming">
+            <div className="coming-icon">◆</div>
+            <span>FOUNDER PROFILE SETTINGS</span>
+            <h2>{activeMenu}</h2>
+            <p>
+              This setting will be connected with secure
+              verification in the next development step.
+            </p>
+            <small>Founder / Owner Full Access</small>
+          </div>
         ) : (
           <div className="panel coming">
             <div className="coming-icon">◆</div>
@@ -552,6 +657,27 @@ export default function Dashboard() {
           color: #ffffff;
         }
 
+        .profile-settings-menu {
+          margin-top: 8px;
+        }
+
+        .folder-arrow {
+          margin-left: auto;
+          font-size: 15px;
+        }
+
+        .profile-submenu {
+          padding-left: 15px;
+          display: grid;
+          gap: 4px;
+          margin-top: 5px;
+        }
+
+        .profile-submenu .menu {
+          font-size: 11px;
+          padding: 11px 9px;
+        }
+
         .sidebar-bottom {
           margin-top: auto;
         }
@@ -667,6 +793,10 @@ export default function Dashboard() {
           font-size: 11px;
         }
 
+        .top-profile-area {
+          position: relative;
+        }
+
         .top-profile {
           display: flex;
           align-items: center;
@@ -682,6 +812,23 @@ export default function Dashboard() {
           margin-right: 13px;
         }
 
+        .profile-trigger {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: white;
+          padding: 5px 8px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        .profile-trigger:hover {
+          background: #252525;
+          border-color: #444;
+        }
+
         .top-avatar {
           width: 36px;
           height: 36px;
@@ -691,6 +838,7 @@ export default function Dashboard() {
         .top-user strong,
         .top-user small {
           display: block;
+          text-align: left;
         }
 
         .top-user strong {
@@ -702,6 +850,74 @@ export default function Dashboard() {
           color: #888888;
           font-size: 10px;
           margin-top: 4px;
+        }
+
+        .dropdown-arrow {
+          color: #aaa;
+          font-size: 9px;
+        }
+
+        .profile-dropdown {
+          position: absolute;
+          z-index: 20;
+          top: calc(100% + 12px);
+          right: 0;
+          width: 220px;
+          padding: 9px;
+          background: #1c1c1c;
+          border: 1px solid #484848;
+          border-radius: 9px;
+          box-shadow: 0 12px 30px #0009;
+        }
+
+        .dropdown-heading {
+          padding: 10px;
+          border-bottom: 1px solid #383838;
+          margin-bottom: 6px;
+        }
+
+        .dropdown-heading strong,
+        .dropdown-heading small {
+          display: block;
+        }
+
+        .dropdown-heading strong {
+          color: #fff;
+          font-size: 12px;
+        }
+
+        .dropdown-heading small {
+          color: #999;
+          font-size: 10px;
+          margin-top: 5px;
+          overflow-wrap: anywhere;
+        }
+
+        .profile-dropdown button {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          border: none;
+          background: transparent;
+          color: #ddd;
+          padding: 11px 10px;
+          border-radius: 6px;
+          text-align: left;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .profile-dropdown button:hover {
+          background: #333;
+          color: #fff;
+        }
+
+        .profile-dropdown .dropdown-logout {
+          border-top: 1px solid #383838;
+          border-radius: 0;
+          margin-top: 5px;
+          color: #f0a0a0;
         }
 
         .welcome {
@@ -1103,6 +1319,10 @@ export default function Dashboard() {
             font-size: 11px;
           }
 
+          .profile-submenu {
+            padding-left: 10px;
+          }
+
           .sidebar-bottom {
             margin-top: 15px;
           }
@@ -1133,6 +1353,10 @@ export default function Dashboard() {
 
           .top-user {
             display: none;
+          }
+
+          .profile-dropdown {
+            right: 0;
           }
 
           .welcome {
