@@ -98,7 +98,10 @@ export default function Dashboard() {
     return (
       <div className={className}>
         {avatarUrl ? (
-          <img src={avatarUrl} alt="Founder Profile" />
+          <img
+            src={avatarUrl}
+            alt="Founder Profile"
+          />
         ) : (
           firstName.charAt(0).toUpperCase() || "F"
         )}
@@ -418,38 +421,112 @@ export default function Dashboard() {
 
       <style jsx>{`
         * { box-sizing: border-box; }
+
         .layout {
-          min-height: 100vh; display: flex; background: #101010;
-          color: #e9e9e9; font-family: Arial, sans-serif;
+          min-height: 100vh;
+          display: flex;
+          background: #101010;
+          color: #e9e9e9;
+          font-family: Arial, sans-serif;
         }
+
         .sidebar {
-          width: 270px; min-height: 100vh;
+          width: 270px;
+          min-height: 100vh;
           background: linear-gradient(180deg,#080808,#141414);
-          padding: 25px 17px; display: flex; flex-direction: column;
-          flex-shrink: 0; border-right: 1px solid #343434;
+          padding: 25px 17px;
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+          border-right: 1px solid #343434;
         }
-        .brand { text-align: center; padding: 8px 5px 23px; border-bottom: 1px solid #333; }
+
+        .brand {
+          text-align: center;
+          padding: 8px 5px 23px;
+          border-bottom: 1px solid #333;
+        }
+
         .brand-symbol { color: #dedede; font-size: 30px; margin-bottom: 8px; }
         .brand h2 { margin: 0 0 10px; font-size: 23px; letter-spacing: 4px; color: white; }
         .brand span { display: block; color: #999; font-size: 9px; letter-spacing: 2px; margin-top: 4px; }
         .brand-line { height: 1px; width: 65px; background: #a8a8a8; margin: 15px auto; }
         .brand small { color: #c7c7c7; font-size: 9px; letter-spacing: 2px; }
-        .profile { display: flex; align-items: center; gap: 12px; padding: 23px 5px; border-bottom: 1px solid #292929; }
-        .avatar,.top-avatar {
-          background: linear-gradient(145deg,#f1f1f1,#8c8c8c); color: #101010;
-          border: 2px solid white; border-radius: 50%; width: 43px; height: 43px;
-          display: grid; place-items: center; font-weight: bold; font-size: 20px; flex-shrink: 0;
+
+        .profile {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 23px 5px;
+          border-bottom: 1px solid #292929;
+        }
+
+        /* Fixed avatar sizes: image ab circle se bahar nahi niklegi */
+        .avatar,
+        .top-avatar,
+        .dropdown-avatar {
+          position: relative;
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           overflow: hidden;
+          border-radius: 50%;
+          border: 2px solid white;
+          background: linear-gradient(145deg,#f1f1f1,#8c8c8c);
+          color: #101010;
+          font-weight: bold;
+          flex: 0 0 auto;
         }
-        .avatar img,.top-avatar img,.dropdown-avatar img {
-          width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+
+        .avatar {
+          width: 43px;
+          height: 43px;
+          min-width: 43px;
+          min-height: 43px;
+          font-size: 20px;
         }
+
+        .top-avatar {
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          min-height: 36px;
+          font-size: 15px;
+        }
+
+        .dropdown-avatar {
+          width: 38px;
+          height: 38px;
+          min-width: 38px;
+          min-height: 38px;
+          font-size: 16px;
+        }
+
+        .avatar img,
+        .top-avatar img,
+        .dropdown-avatar img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          display: block;
+          width: 100%;
+          height: 100%;
+          min-width: 0;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: cover;
+          object-position: center;
+          border-radius: 50%;
+        }
+
         .profile-info { min-width: 0; }
         .profile strong,.profile small { display: block; }
         .profile strong { font-size: 12px; color: white; overflow-wrap: anywhere; }
         .profile small { color: #a6a6a6; margin-top: 5px; font-size: 11px; }
         .online-indicator { display: flex; align-items: center; gap: 6px; color: #bdbdbd; font-size: 10px; margin-top: 8px; }
         .online-indicator i,.top-status i,.overview-status i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #79c99a; box-shadow: 0 0 8px #79c99a80; }
+
         .menu-title { color: #777; font-size: 9px; letter-spacing: 2px; padding-left: 9px; margin: 24px 0 12px; }
         nav { display: grid; gap: 7px; }
         .menu { display: flex; gap: 12px; align-items: center; padding: 13px 12px; border: 1px solid transparent; border-radius: 7px; color: #b9b9b9; background: transparent; text-align: left; cursor: pointer; font-size: 12px; width: 100%; }
@@ -461,6 +538,7 @@ export default function Dashboard() {
         .folder-arrow { margin-left: auto; font-size: 15px; }
         .profile-submenu { padding-left: 15px; display: grid; gap: 4px; margin-top: 5px; }
         .profile-submenu .menu { font-size: 11px; padding: 11px 9px; }
+
         .sidebar-bottom { margin-top: auto; }
         .authority-card { display: flex; gap: 11px; align-items: center; padding: 13px 10px; margin: 24px 0 15px; background: #1b1b1b; border: 1px solid #383838; border-radius: 8px; }
         .authority-icon { font-size: 19px; color: #d7d7d7; }
@@ -472,6 +550,7 @@ export default function Dashboard() {
         .logout span { margin-right: 8px; font-size: 16px; }
         .sidebar-footer { text-align: center; color: #747474; font-size: 8px; letter-spacing: 1.4px; margin-top: 17px; line-height: 1.8; }
         .sidebar-footer span { display: block; color: #555; font-size: 8px; }
+
         .content { flex: 1; min-width: 0; padding: 28px 34px; background: radial-gradient(ellipse at 85% 0%,#242424 0%,transparent 38%),#101010; }
         .topbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #353535; padding-bottom: 21px; gap: 15px; }
         .heading-label { color: #999; font-size: 9px; letter-spacing: 2px; margin-bottom: 9px; }
@@ -482,7 +561,6 @@ export default function Dashboard() {
         .top-status { display: flex; align-items: center; gap: 7px; color: #a9a9a9; font-size: 10px; margin-right: 13px; }
         .profile-trigger { display: flex; align-items: center; gap: 10px; border: 1px solid transparent; background: transparent; color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
         .profile-trigger:hover { background: #252525; border-color: #444; }
-        .top-avatar { width: 36px; height: 36px; font-size: 15px; }
         .top-user strong,.top-user small { display: block; text-align: left; }
         .top-user strong { color: #f2f2f2; font-size: 11px; }
         .top-user small { color: #888; font-size: 10px; margin-top: 4px; }
@@ -492,10 +570,10 @@ export default function Dashboard() {
         .dropdown-heading strong,.dropdown-heading small { display: block; }
         .dropdown-heading strong { color: white; font-size: 12px; }
         .dropdown-heading small { color: #999; font-size: 10px; margin-top: 5px; }
-        .dropdown-avatar { width: 38px; height: 38px; border-radius: 50%; border: 1px solid white; overflow: hidden; display: grid; place-items: center; flex-shrink: 0; background: #ddd; color: #111; font-weight: bold; }
         .profile-dropdown button { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent; color: #ddd; padding: 11px 10px; border-radius: 6px; text-align: left; cursor: pointer; font-size: 12px; }
         .profile-dropdown button:hover { background: #333; color: white; }
         .profile-dropdown .dropdown-logout { border-top: 1px solid #383838; border-radius: 0; margin-top: 5px; color: #f0a0a0; }
+
         .welcome { display: flex; justify-content: space-between; align-items: center; gap: 20px; background: radial-gradient(circle at 85% 45%,#55555555,transparent 32%),linear-gradient(115deg,#292929,#111 72%); border: 1px solid #555; border-radius: 12px; padding: 30px; margin-top: 26px; min-height: 205px; box-shadow: 0 15px 35px #00000035; overflow: hidden; }
         .welcome-label { color: #c7c7c7; font-size: 9px; letter-spacing: 2px; margin-bottom: 14px; }
         .welcome h2 { margin: 0 0 10px; font-size: 27px; color: white; overflow-wrap: anywhere; }
@@ -507,6 +585,7 @@ export default function Dashboard() {
         .welcome-emblem span,.welcome-emblem small { display: block; letter-spacing: 2px; }
         .welcome-emblem span { color: #e7e7e7; font-size: 11px; }
         .welcome-emblem small { color: #888; font-size: 8px; margin-top: 6px; }
+
         .section-title { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 30px 0 15px; }
         .section-title span { color: #929292; font-size: 9px; letter-spacing: 2px; }
         .section-title h3 { margin: 6px 0 0; font-size: 17px; color: #f0f0f0; }
@@ -544,11 +623,13 @@ export default function Dashboard() {
         .coming h2 { color: white; font-size: 23px; margin: 12px 0; }
         .coming p { color: #aaa; font-size: 12px; }
         .coming small { display: inline-block; margin-top: 12px; color: #d0d0d0; border: 1px solid #555; padding: 7px 12px; border-radius: 4px; }
+
         @media (max-width:1050px) {
           .sidebar { width: 245px; }
           .content { padding: 24px; }
           .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
         }
+
         @media (max-width:700px) {
           .layout { flex-direction: column; }
           .sidebar { width: 100%; min-height: auto; padding: 17px; }
@@ -588,6 +669,7 @@ export default function Dashboard() {
           .level-access { font-size: 7px; padding: 3px 4px; }
           .authority-grid { grid-template-columns: 1fr; gap: 10px; }
         }
+
         @media (max-width:380px) {
           .welcome-emblem { display: none; }
           .stats { grid-template-columns: 1fr; }
