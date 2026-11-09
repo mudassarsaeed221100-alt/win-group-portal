@@ -400,7 +400,7 @@ export default function StaffDashboard() {
 
             <div>
               <p style={{ color: "#718096", fontSize: 12 }}>ACCOUNT STATUS</p>
-              <strong style={{ color: "#059669 }}>Active</strong>
+             <strong style={{ color: "#059669" }}>Active</strong>
             </div>
           </div>
         </section>
