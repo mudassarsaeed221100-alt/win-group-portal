@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,10 +10,7 @@ export async function GET(request: NextRequest) {
       ?.replace("Bearer ", "");
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabase = createClient(
@@ -25,10 +22,7 @@ export async function GET(request: NextRequest) {
       await supabase.auth.getUser(token);
 
     if (authError || !authData.user) {
-      return NextResponse.json(
-        { error: "Invalid session" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -62,10 +56,7 @@ export async function PATCH(request: NextRequest) {
       ?.replace("Bearer ", "");
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabase = createClient(
@@ -77,18 +68,14 @@ export async function PATCH(request: NextRequest) {
       await supabase.auth.getUser(token);
 
     if (authError || !authData.user) {
-      return NextResponse.json(
-        { error: "Invalid session" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    const { data: caller, error: callerError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("id, role")
-        .eq("id", authData.user.id)
-        .single();
+    const { data: caller, error: callerError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, role")
+      .eq("id", authData.user.id)
+      .single();
 
     if (callerError || caller?.role !== "founder_owner") {
       return NextResponse.json(
@@ -116,11 +103,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .update({
-        first_name,
-        surname,
-        phone,
-      })
+      .update({ first_name, surname, phone })
       .eq("id", authData.user.id)
       .select(
         "id, username, role, first_name, surname, avatar_url, phone, phone_verified"
@@ -129,10 +112,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      profile: data,
-    });
+    return NextResponse.json({ success: true, profile: data });
   } catch (error) {
     console.error("Profile PATCH error:", error);
 
