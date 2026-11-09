@@ -95,12 +95,63 @@ export default function Dashboard() {
   }
 
   function ProfileAvatar({ className }: { className: string }) {
+    const dimensions =
+      className === "avatar"
+        ? 43
+        : className === "top-avatar"
+        ? 36
+        : 38;
+
     return (
-      <div className={className}>
+      <div
+        className={className}
+        style={{
+          position: "relative",
+          display: "block",
+          width: `${dimensions}px`,
+          height: `${dimensions}px`,
+          minWidth: `${dimensions}px`,
+          minHeight: `${dimensions}px`,
+          maxWidth: `${dimensions}px`,
+          maxHeight: `${dimensions}px`,
+          flex: `0 0 ${dimensions}px`,
+          overflow: "hidden",
+          borderRadius: "50%",
+          border: "2px solid white",
+          padding: 0,
+          margin: 0,
+          boxSizing: "border-box",
+          background: "linear-gradient(145deg,#f1f1f1,#8c8c8c)",
+          color: "#101010",
+          fontWeight: "bold",
+          fontSize: className === "avatar" ? "20px" : "15px",
+          lineHeight: `${dimensions - 4}px`,
+          textAlign: "center",
+          isolation: "isolate",
+        }}
+      >
         {avatarUrl ? (
           <img
             src={avatarUrl}
             alt="Founder Profile"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "block",
+              width: "100%",
+              height: "100%",
+              minWidth: "100%",
+              maxWidth: "100%",
+              minHeight: "100%",
+              maxHeight: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              borderRadius: "50%",
+              padding: 0,
+              margin: 0,
+              boxSizing: "border-box",
+            }}
           />
         ) : (
           firstName.charAt(0).toUpperCase() || "F"
@@ -459,65 +510,6 @@ export default function Dashboard() {
           gap: 12px;
           padding: 23px 5px;
           border-bottom: 1px solid #292929;
-        }
-
-        /* Fixed avatar sizes: image ab circle se bahar nahi niklegi */
-        .avatar,
-        .top-avatar,
-        .dropdown-avatar {
-          position: relative;
-          box-sizing: border-box;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          border-radius: 50%;
-          border: 2px solid white;
-          background: linear-gradient(145deg,#f1f1f1,#8c8c8c);
-          color: #101010;
-          font-weight: bold;
-          flex: 0 0 auto;
-        }
-
-        .avatar {
-          width: 43px;
-          height: 43px;
-          min-width: 43px;
-          min-height: 43px;
-          font-size: 20px;
-        }
-
-        .top-avatar {
-          width: 36px;
-          height: 36px;
-          min-width: 36px;
-          min-height: 36px;
-          font-size: 15px;
-        }
-
-        .dropdown-avatar {
-          width: 38px;
-          height: 38px;
-          min-width: 38px;
-          min-height: 38px;
-          font-size: 16px;
-        }
-
-        .avatar img,
-        .top-avatar img,
-        .dropdown-avatar img {
-          position: absolute;
-          top: 0;
-          left: 0;
-          display: block;
-          width: 100%;
-          height: 100%;
-          min-width: 0;
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: cover;
-          object-position: center;
-          border-radius: 50%;
         }
 
         .profile-info { min-width: 0; }
