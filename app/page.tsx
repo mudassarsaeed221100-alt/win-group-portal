@@ -14,25 +14,49 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+    try {
+      const { data, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
-    setLoading(false);
+      if (loginError || !data.user) {
+        setError(loginError?.message || "Login failed.");
+        return;
+      }
 
-    if (loginError) {
-      setError(loginError.message);
-      return;
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+      if (profileError || !profile) {
+        setError("Account profile not found. Please contact Founder.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (profile.role === "founder_owner") {
+        router.replace("/dashboard");
+      } else if (profile.role === "super_admin") {
+        router.replace("/super-admin");
+      } else {
+        setError("Your dashboard is not ready yet. Please contact Founder.");
+        await supabase.auth.signOut();
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/dashboard");
   }
 
   return (
@@ -130,7 +154,8 @@ export default function Home() {
             background: "#102b50",
             color: "white",
             border: "none",
-            borderRadius: "7px"
+            borderRadius: "7px",
+            cursor: "pointer"
           }}
         >
           {loading ? "Logging in..." : "Login"}
