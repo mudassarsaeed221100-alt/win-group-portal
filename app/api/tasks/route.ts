@@ -27,16 +27,12 @@ async function verifyUser(request: NextRequest) {
   return { user, profile };
 }
 
-// GET: Staff sirf apne assigned tasks dekhega.
 export async function GET(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
 
     if (!auth) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { profile } = auth;
@@ -82,7 +78,7 @@ export async function GET(request: NextRequest) {
     const taskList = tasks || [];
     const taskIds = taskList.map((task) => task.id);
 
-    let assigneesByTask: Record<
+    const assigneesByTask: Record<
       string,
       { id: string; username: string }[]
     > = {};
@@ -142,16 +138,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Ek task multiple Staff members ko assign karein.
 export async function POST(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
 
     if (!auth) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { user, profile } = auth;
@@ -165,19 +157,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body: {
+      title?: unknown;
+      description?: unknown;
+      assigned_to?: unknown;
+      due_date?: unknown;
+    } = await request.json();
 
     const title = String(body.title || "").trim();
     const description = String(body.description || "").trim();
-    const due_date = body.due_date || null;
+    const due_date = body.due_date ? String(body.due_date) : null;
 
-    const assignedIds: string[] = Array.isArray(body.assigned_to)
-      ? [...new Set(
-          body.assigned_to
-            .map((id: unknown) => String(id).trim())
-            .filter(Boolean)
-        )]
+    const rawAssignedIds: unknown[] = Array.isArray(body.assigned_to)
+      ? body.assigned_to
       : [];
+
+    const assignedIds: string[] = [
+      ...new Set(
+        rawAssignedIds
+          .map((id) => String(id).trim())
+          .filter((id) => id.length > 0)
+      ),
+    ];
 
     if (!title || assignedIds.length === 0) {
       return NextResponse.json(
@@ -202,8 +203,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Purane task table mein pehla Staff ID bhi rakha ja raha hai
-    // taake existing data structure compatible rahe.
     const { data: task, error: taskError } = await supabaseAdmin
       .from("staff_tasks")
       .insert({
@@ -228,7 +227,6 @@ export async function POST(request: NextRequest) {
       .insert(assignmentRows);
 
     if (assignmentError) {
-      // Assignment fail ho to naya task bhi remove kar dein.
       await supabaseAdmin
         .from("staff_tasks")
         .delete()
