@@ -4,7 +4,14 @@
 import { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+
 import StaffOverview from "./StaffOverview";
+import AvailableWorkTasks from "./AvailableWorkTasks";
+import SubmitWork from "./SubmitWork";
+import MyEarnings from "./MyEarnings";
+import Notifications from "./Notifications";
+import MyProfile from "./MyProfile";
+import Support from "./Support";
 
 type MenuKey =
   | "overview"
@@ -45,7 +52,8 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState<MenuKey>("overview");
   const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [superAdmin, setSuperAdmin] = useState<SuperAdminProfile | null>(null);
+  const [superAdmin, setSuperAdmin] =
+    useState<SuperAdminProfile | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [firstName, setFirstName] = useState("");
@@ -89,7 +97,6 @@ export default function StaffDashboard() {
       setFirstName(staffData.first_name || "");
       setSurname(staffData.surname || "");
 
-      // Staff ke team_code se uska Super Admin find karein.
       if (staffData.team_code) {
         const { data: saData, error: saError } = await supabase
           .from("profiles")
@@ -157,6 +164,7 @@ export default function StaffDashboard() {
             }
           : previous
       );
+
       setProfileMessage("Profile successfully update ho gaya.");
     }
 
@@ -256,133 +264,116 @@ export default function StaffDashboard() {
         );
 
       case "tasks":
-        return (
-          <ComingSoon
-            title="Available Work Tasks"
-            description="Yahan aapko company ki taraf se available work tasks nazar aayenge."
-            inactive
-          />
-        );
+        return <AvailableWorkTasks />;
 
       case "submit":
-        return (
-          <ComingSoon
-            title="Submit Work & Proof"
-            description="Yahan staff apna completed work aur proof submit kar sakega."
-            inactive
-          />
-        );
+        return <SubmitWork />;
 
       case "earnings":
-        return (
-          <ComingSoon
-            title="My Earnings"
-            description="Yahan aapki approved earnings aur payment records show honge."
-          />
-        );
+        return <MyEarnings />;
 
       case "notifications":
-        return (
-          <ComingSoon
-            title="Notifications"
-            description="Yahan company ki taraf se aane wali notifications show hongi."
-          />
-        );
+        return <Notifications />;
 
       case "profile":
         return (
-          <section style={styles.contentCard}>
-            <h2 style={styles.sectionTitle}>My Profile</h2>
-            <p style={styles.muted}>
-              Apni personal information aur profile picture manage karein.
-            </p>
+          <div style={{ display: "grid", gap: 20 }}>
+            <MyProfile
+              profile={profile}
+              superAdmin={superAdmin}
+            />
 
-            <div style={styles.profilePictureArea}>
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Profile"
-                  style={styles.profilePicture}
-                />
-              ) : (
-                <div style={styles.profilePicturePlaceholder}>
-                  {fullName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <section style={styles.contentCard}>
+              <h2 style={styles.sectionTitle}>Edit Profile</h2>
+              <p style={styles.muted}>
+                Apni personal information aur profile picture update karein.
+              </p>
 
-              <div>
-                <label style={styles.uploadButton}>
-                  {uploading ? "Uploading..." : "Change Picture"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={uploadPicture}
-                    disabled={uploading}
-                    style={{ display: "none" }}
+              <div style={styles.profilePictureArea}>
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Profile"
+                    style={styles.profilePicture}
                   />
-                </label>
-                <p style={styles.muted}>
-                  JPG, PNG ya WebP. Maximum 4 MB.
-                </p>
-              </div>
-            </div>
+                ) : (
+                  <div style={styles.profilePicturePlaceholder}>
+                    {fullName.charAt(0).toUpperCase()}
+                  </div>
+                )}
 
-            <form onSubmit={saveProfile}>
-              <label style={styles.fieldLabel}>First Name</label>
-              <input
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                required
-                style={styles.input}
-                placeholder="First Name"
-              />
+                <div>
+                  <label style={styles.uploadButton}>
+                    {uploading ? "Uploading..." : "Change Picture"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={uploadPicture}
+                      disabled={uploading}
+                      style={{ display: "none" }}
+                    />
+                  </label>
 
-              <label style={styles.fieldLabel}>Surname</label>
-              <input
-                value={surname}
-                onChange={(event) => setSurname(event.target.value)}
-                required
-                style={styles.input}
-                placeholder="Surname"
-              />
-
-              <div style={styles.infoRow}>
-                <span>Account Role</span>
-                <strong>Staff</strong>
+                  <p style={styles.muted}>
+                    JPG, PNG ya WebP. Maximum 4 MB.
+                  </p>
+                </div>
               </div>
 
-              <div style={styles.infoRow}>
-                <span>Super Admin</span>
-                <strong>{superAdminName || "Not available"}</strong>
-              </div>
+              <form onSubmit={saveProfile}>
+                <label style={styles.fieldLabel}>First Name</label>
+                <input
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                  required
+                  style={styles.input}
+                  placeholder="First Name"
+                />
 
-              <div style={styles.infoRow}>
-                <span>Team Code</span>
-                <strong>{superAdmin?.team_code || "Not available"}</strong>
-              </div>
+                <label style={styles.fieldLabel}>Surname</label>
+                <input
+                  value={surname}
+                  onChange={(event) => setSurname(event.target.value)}
+                  required
+                  style={styles.input}
+                  placeholder="Surname"
+                />
 
-              <button
-                type="submit"
-                disabled={saving}
-                style={styles.saveButton}
-              >
-                {saving ? "Saving..." : "Save Profile"}
-              </button>
-            </form>
+                <div style={styles.infoRow}>
+                  <span>Account Role</span>
+                  <strong>Staff</strong>
+                </div>
 
-            {profileMessage && (
-              <p style={styles.message}>{profileMessage}</p>
-            )}
-          </section>
+                <div style={styles.infoRow}>
+                  <span>Super Admin</span>
+                  <strong>{superAdminName || "Not available"}</strong>
+                </div>
+
+                <div style={styles.infoRow}>
+                  <span>Team Code</span>
+                  <strong>
+                    {superAdmin?.team_code || "Not available"}
+                  </strong>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={styles.saveButton}
+                >
+                  {saving ? "Saving..." : "Save Profile"}
+                </button>
+              </form>
+
+              {profileMessage && (
+                <p style={styles.message}>{profileMessage}</p>
+              )}
+            </section>
+          </div>
         );
 
       case "support":
-        return (
-          <ComingSoon
-            title="Staff Support"
-            description="Yahan aap company support team se help aur guidance hasil kar sakenge."
-          />
-        );
+        return <Support />;
 
       default:
         return (
@@ -512,38 +503,19 @@ export default function StaffDashboard() {
 
         <div style={styles.superAdminBar}>
           <span>
-            Super Admin: <strong>{superAdminName || "Not available"}</strong>
+            Super Admin:{" "}
+            <strong>{superAdminName || "Not available"}</strong>
           </span>
+
           <span>
-            Team Code: <strong>{superAdmin?.team_code || "Not available"}</strong>
+            Team Code:{" "}
+            <strong>{superAdmin?.team_code || "Not available"}</strong>
           </span>
         </div>
 
         <div style={styles.pageContent}>{renderContent()}</div>
       </main>
     </div>
-  );
-}
-
-function ComingSoon({
-  title,
-  description,
-  inactive = false,
-}: {
-  title: string;
-  description: string;
-  inactive?: boolean;
-}) {
-  return (
-    <section style={styles.contentCard}>
-      <h2 style={styles.sectionTitle}>{title}</h2>
-      <p style={styles.muted}>{description}</p>
-      <div style={styles.statusBox}>
-        {inactive
-          ? "Task System Currently Inactive"
-          : "Module Integration Pending"}
-      </div>
-    </section>
   );
 }
 
@@ -816,15 +788,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#a5a7b0",
     fontSize: 14,
     lineHeight: 1.6,
-  },
-  statusBox: {
-    marginTop: 25,
-    padding: 18,
-    background: "#252730",
-    border: "1px solid #454853",
-    borderRadius: 9,
-    color: "#d1d3da",
-    fontSize: 14,
   },
   profilePictureArea: {
     display: "flex",
