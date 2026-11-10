@@ -20,6 +20,13 @@ type StaffProfile = {
   surname: string | null;
   role: string;
   avatar_url: string | null;
+  team_code: string | null;
+};
+
+type SuperAdminProfile = {
+  first_name: string | null;
+  surname: string | null;
+  team_code: string | null;
 };
 
 const menuItems: { id: MenuKey; label: string }[] = [
@@ -38,6 +45,7 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState<MenuKey>("overview");
   const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [superAdmin, setSuperAdmin] = useState<SuperAdminProfile | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [firstName, setFirstName] = useState("");
@@ -63,7 +71,7 @@ export default function StaffDashboard() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("first_name, surname, role, avatar_url")
+        .select("first_name, surname, role, avatar_url, team_code")
         .eq("id", user.id)
         .single();
 
@@ -75,10 +83,31 @@ export default function StaffDashboard() {
         return;
       }
 
-      setProfile(data);
-      setFirstName(data.first_name || "");
-      setSurname(data.surname || "");
-      setLoading(false);
+      const staffData: StaffProfile = data;
+
+      setProfile(staffData);
+      setFirstName(staffData.first_name || "");
+      setSurname(staffData.surname || "");
+
+      // Staff ke team_code se uska Super Admin find karein.
+      if (staffData.team_code) {
+        const { data: saData, error: saError } = await supabase
+          .from("profiles")
+          .select("first_name, surname, team_code")
+          .eq("role", "super_admin")
+          .eq("team_code", staffData.team_code)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (saError) {
+          console.error("Super Admin lookup error:", saError.message);
+        } else {
+          setSuperAdmin(saData);
+        }
+      }
+
+      if (active) setLoading(false);
     }
 
     checkStaff();
@@ -146,8 +175,8 @@ export default function StaffDashboard() {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setProfileMessage("Picture ka size 2 MB se kam hona chahiye.");
+    if (file.size > 4 * 1024 * 1024) {
+      setProfileMessage("Picture ka size 4 MB se kam hona chahiye.");
       event.target.value = "";
       return;
     }
@@ -213,10 +242,18 @@ export default function StaffDashboard() {
     `${profile.first_name || ""} ${profile.surname || ""}`.trim() ||
     "Staff Member";
 
+  const superAdminName =
+    `${superAdmin?.first_name || ""} ${superAdmin?.surname || ""}`.trim();
+
   function renderContent() {
     switch (activeMenu) {
       case "overview":
-        return <StaffOverview />;
+        return (
+          <StaffOverview
+            profile={profile}
+            superAdmin={superAdmin}
+          />
+        );
 
       case "tasks":
         return (
@@ -285,7 +322,7 @@ export default function StaffDashboard() {
                   />
                 </label>
                 <p style={styles.muted}>
-                  JPG, PNG ya WebP. Maximum 2 MB.
+                  JPG, PNG ya WebP. Maximum 4 MB.
                 </p>
               </div>
             </div>
@@ -314,6 +351,16 @@ export default function StaffDashboard() {
                 <strong>Staff</strong>
               </div>
 
+              <div style={styles.infoRow}>
+                <span>Super Admin</span>
+                <strong>{superAdminName || "Not available"}</strong>
+              </div>
+
+              <div style={styles.infoRow}>
+                <span>Team Code</span>
+                <strong>{superAdmin?.team_code || "Not available"}</strong>
+              </div>
+
               <button
                 type="submit"
                 disabled={saving}
@@ -338,7 +385,12 @@ export default function StaffDashboard() {
         );
 
       default:
-        return <StaffOverview />;
+        return (
+          <StaffOverview
+            profile={profile}
+            superAdmin={superAdmin}
+          />
+        );
     }
   }
 
@@ -420,28 +472,52 @@ export default function StaffDashboard() {
             ☰
           </button>
 
-          <div>
+          <div style={styles.brandHeader}>
             <strong style={styles.topbarTitle}>WIN GROUP</strong>
             <p style={styles.topbarSubtitle}>
-              Staff Workspace
+              WOLF INDEPENDENT NATIONAL GROUP
             </p>
           </div>
 
-          <div style={styles.topbarUser}>
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt="Profile"
-                style={styles.topbarAvatar}
-              />
-            ) : (
-              <div style={styles.topbarAvatarPlaceholder}>
-                {fullName.charAt(0).toUpperCase()}
+          <div style={styles.topbarRight}>
+            <span style={styles.portalLabel}>Staff Portal</span>
+
+            <div style={styles.topbarUser}>
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="Profile"
+                  style={styles.topbarAvatar}
+                />
+              ) : (
+                <div style={styles.topbarAvatarPlaceholder}>
+                  {fullName.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <div style={styles.topbarUserDetails}>
+                <strong style={styles.topbarName}>{fullName}</strong>
+                <span style={styles.topbarRole}>Staff Member</span>
               </div>
-            )}
-            <strong>{fullName}</strong>
+            </div>
+
+            <button
+              onClick={() => setActiveMenu("profile")}
+              style={styles.editButton}
+            >
+              Edit Profile
+            </button>
           </div>
         </header>
+
+        <div style={styles.superAdminBar}>
+          <span>
+            Super Admin: <strong>{superAdminName || "Not available"}</strong>
+          </span>
+          <span>
+            Team Code: <strong>{superAdmin?.team_code || "Not available"}</strong>
+          </span>
+        </div>
 
         <div style={styles.pageContent}>{renderContent()}</div>
       </main>
@@ -534,13 +610,18 @@ const styles: Record<string, React.CSSProperties> = {
   sidebarAvatar: {
     width: 43,
     height: 43,
+    minWidth: 43,
+    minHeight: 43,
+    flexShrink: 0,
     borderRadius: "50%",
     objectFit: "cover",
+    display: "block",
     border: "2px solid #aeb2bd",
   },
   sidebarAvatarPlaceholder: {
     width: 43,
     height: 43,
+    minWidth: 43,
     flexShrink: 0,
     borderRadius: "50%",
     background: "linear-gradient(135deg, #777b87, #292b33)",
@@ -605,7 +686,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
   },
   topbar: {
-    minHeight: 72,
+    minHeight: 82,
     boxSizing: "border-box",
     background: "#15161b",
     borderBottom: "1px solid #353740",
@@ -613,10 +694,12 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 15,
+    flexWrap: "wrap",
   },
   hamburger: {
     width: 43,
     height: 40,
+    flexShrink: 0,
     border: "1px solid #555965",
     background: "#24262d",
     color: "white",
@@ -624,34 +707,94 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 22,
     cursor: "pointer",
   },
+  brandHeader: {
+    minWidth: 180,
+  },
   topbarTitle: {
     letterSpacing: 1.5,
   },
   topbarSubtitle: {
     color: "#a5a7b0",
-    fontSize: 12,
-    margin: "4px 0 0",
+    fontSize: 10,
+    letterSpacing: 1,
+    margin: "5px 0 0",
   },
-  topbarUser: {
+  topbarRight: {
     marginLeft: "auto",
     display: "flex",
     alignItems: "center",
-    gap: 9,
+    justifyContent: "flex-end",
+    gap: 15,
+    flexWrap: "wrap",
+  },
+  portalLabel: {
+    color: "#c5c7ce",
     fontSize: 13,
+    fontWeight: "bold",
+  },
+  topbarUser: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    minWidth: 0,
+  },
+  topbarUserDetails: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minWidth: 0,
+  },
+  topbarName: {
+    fontSize: 16,
+    fontWeight: 400,
+    whiteSpace: "nowrap",
+  },
+  topbarRole: {
+    color: "#a5a7b0",
+    fontSize: 11,
   },
   topbarAvatar: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
+    minWidth: 38,
+    minHeight: 38,
+    flexShrink: 0,
     borderRadius: "50%",
     objectFit: "cover",
+    display: "block",
+    border: "2px solid #777b87",
   },
   topbarAvatarPlaceholder: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
+    minWidth: 38,
+    flexShrink: 0,
     borderRadius: "50%",
     background: "#555965",
     display: "grid",
     placeItems: "center",
+  },
+  editButton: {
+    padding: "10px 14px",
+    border: "1px solid #777b87",
+    borderRadius: 8,
+    background: "#292b33",
+    color: "white",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  superAdminBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: "10px 25px",
+    padding: "12px 22px",
+    background: "#101116",
+    borderBottom: "1px solid #30323a",
+    color: "#aeb1bb",
+    fontSize: 12,
   },
   pageContent: {
     padding: 22,
@@ -695,13 +838,18 @@ const styles: Record<string, React.CSSProperties> = {
   profilePicture: {
     width: 100,
     height: 100,
+    minWidth: 100,
+    minHeight: 100,
+    flexShrink: 0,
     borderRadius: "50%",
     objectFit: "cover",
+    display: "block",
     border: "3px solid #858995",
   },
   profilePicturePlaceholder: {
     width: 100,
     height: 100,
+    minWidth: 100,
     flexShrink: 0,
     borderRadius: "50%",
     background: "linear-gradient(135deg, #777b87, #292b33)",
@@ -742,6 +890,8 @@ const styles: Record<string, React.CSSProperties> = {
   infoRow: {
     display: "flex",
     justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
     maxWidth: 500,
     padding: "17px 0",
     marginTop: 10,
