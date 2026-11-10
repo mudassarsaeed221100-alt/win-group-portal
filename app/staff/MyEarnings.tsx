@@ -1,308 +1,561 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Earning = {
   id: string;
-  submission_id: string;
   amount: number;
   payment_status: string;
-  paid_at: string | null;
+  withdrawn_amount: number | null;
   created_at: string;
+  paid_at: string | null;
 };
+
+type Withdrawal = {
+  id: string;
+  amount: number;
+  payment_method: string;
+  account_title: string;
+  account_number: string;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
+const styles: Record<string, CSSProperties> = {
+  container: {
+    color: "#f1f3f5",
+    width: "100%",
+  },
+  smallTitle: {
+    color: "#aeb4bd",
+    fontSize: 12,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  heading: {
+    fontSize: 26,
+    margin: "0 0 8px",
+  },
+  muted: {
+    color: "#aeb4bd",
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 12,
+    marginTop: 22,
+  },
+  card: {
+    background: "#202329",
+    border: "1px solid #343943",
+    borderRadius: 12,
+    padding: 18,
+  },
+  cardLabel: {
+    color: "#aeb4bd",
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  amount: {
+    fontSize: 23,
+    fontWeight: 700,
+    overflowWrap: "anywhere",
+  },
+  section: {
+    background: "#202329",
+    border: "1px solid #343943",
+    borderRadius: 12,
+    padding: 18,
+    marginTop: 20,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    margin: "0 0 15px",
+  },
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    background: "#17191d",
+    border: "1px solid #414752",
+    color: "#fff",
+    borderRadius: 8,
+    padding: "12px",
+    marginTop: 6,
+    marginBottom: 14,
+    fontSize: 15,
+  },
+  button: {
+    background: "#3478f6",
+    border: 0,
+    color: "#fff",
+    padding: "13px 18px",
+    borderRadius: 8,
+    fontWeight: 700,
+    cursor: "pointer",
+    width: "100%",
+    fontSize: 15,
+  },
+  message: {
+    background: "#17191d",
+    borderRadius: 8,
+    padding: 14,
+    color: "#c5cbd3",
+    fontSize: 14,
+    marginTop: 12,
+  },
+  error: {
+    background: "#3a2024",
+    border: "1px solid #754047",
+    color: "#ffb8bf",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  success: {
+    background: "#1c3027",
+    border: "1px solid #315b43",
+    color: "#a8e6bf",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  tableWrap: {
+    width: "100%",
+    overflowX: "auto",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: 620,
+    fontSize: 13,
+  },
+  th: {
+    textAlign: "left",
+    padding: 11,
+    color: "#aeb4bd",
+    borderBottom: "1px solid #414752",
+    whiteSpace: "nowrap",
+  },
+  td: {
+    padding: 11,
+    borderBottom: "1px solid #343943",
+    whiteSpace: "nowrap",
+  },
+  status: {
+    display: "inline-block",
+    padding: "5px 9px",
+    borderRadius: 20,
+    background: "#302a1e",
+    color: "#f5d28a",
+    fontSize: 12,
+    textTransform: "capitalize",
+  },
+};
+
+function money(value: number) {
+  return `Rs. ${Number(value || 0).toLocaleString("en-PK", {
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function pakistanDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value || "";
+
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function pakistanDateStart(key: string) {
+  return new Date(`${key}T00:00:00+05:00`).getTime();
+}
+
+function getWeekStart(key: string) {
+  const [year, month, day] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = date.getUTCDay();
+  const difference = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  date.setUTCDate(date.getUTCDate() - difference);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+
+  return new Date(value).toLocaleDateString("en-PK", {
+    timeZone: "Asia/Karachi",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function MyEarnings() {
   const [earnings, setEarnings] = useState<Earning[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("EasyPaisa");
+  const [accountTitle, setAccountTitle] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
 
-    async function loadEarnings() {
-      setLoading(true);
-      setError("");
+  async function loadData() {
+    setLoading(true);
+    setError("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      if (!active) return;
-
-      if (userError || !user) {
-        setError("User session nahi mili. Dobara login karein.");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error: queryError } = await supabase
-        .from("earnings_ledger")
-        .select("id, submission_id, amount, payment_status, paid_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (!active) return;
-
-      if (queryError) {
-        setError(queryError.message);
-        setEarnings([]);
-      } else {
-        setEarnings((data || []) as Earning[]);
-      }
-
+    if (userError || !user) {
+      setError("User session nahi mili. Dobara login karein.");
       setLoading(false);
+      return;
     }
 
-    loadEarnings();
+    const [earningResult, withdrawalResult] = await Promise.all([
+      supabase
+        .from("earnings_ledger")
+        .select(
+          "id, amount, payment_status, withdrawn_amount, created_at, paid_at"
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
 
-    return () => {
-      active = false;
-    };
+      supabase
+        .from("withdrawal_requests")
+        .select(
+          "id, amount, payment_method, account_title, account_number, status, admin_note, created_at, paid_at"
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (earningResult.error) {
+      setError(earningResult.error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (withdrawalResult.error) {
+      setError(withdrawalResult.error.message);
+      setLoading(false);
+      return;
+    }
+
+    setEarnings((earningResult.data || []) as Earning[]);
+    setWithdrawals((withdrawalResult.data || []) as Withdrawal[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
 
-  const totalEarnings = earnings.reduce(
+  const totalLifetime = earnings.reduce(
     (sum, item) => sum + Number(item.amount || 0),
     0
   );
 
-  const paidEarnings = earnings
-    .filter((item) => item.payment_status === "paid")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const paidEarnings = earnings.reduce((sum, item) => {
+    const withdrawn = Number(item.withdrawn_amount || 0);
 
-  const unpaidEarnings = earnings
-    .filter((item) => item.payment_status === "unpaid")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-  function formatAmount(amount: number) {
-    return `Rs. ${Number(amount).toLocaleString("en-PK")}`;
-  }
-
-  function formatDate(date: string | null) {
-    if (!date) return "Not paid yet";
-
-    return new Date(date).toLocaleDateString("en-PK", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  function statusStyle(status: string): React.CSSProperties {
-    if (status === "paid") {
-      return {
-        color: "#a8e6bf",
-        background: "#1c3027",
-        border: "1px solid #315b43",
-      };
+    if (item.payment_status === "paid" && withdrawn === 0) {
+      return sum + Number(item.amount || 0);
     }
 
-    return {
-      color: "#f5d28a",
-      background: "#302a1e",
-      border: "1px solid #5c4b2d",
-    };
+    return sum + withdrawn;
+  }, 0);
+
+  const reservedWithdrawals = withdrawals
+    .filter((item) => ["pending", "approved"].includes(item.status))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const unpaidBalance = earnings
+    .filter((item) => item.payment_status !== "paid")
+    .reduce(
+      (sum, item) =>
+        sum +
+        Math.max(
+          0,
+          Number(item.amount || 0) - Number(item.withdrawn_amount || 0)
+        ),
+      0
+    );
+
+  const availableBalance = Math.max(
+    0,
+    unpaidBalance - reservedWithdrawals
+  );
+
+  const pendingWithdrawal = withdrawals
+    .filter((item) => item.status === "pending")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const todayKey = pakistanDateKey(new Date());
+  const todayStart = pakistanDateStart(todayKey);
+  const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+
+  const weekStart = pakistanDateStart(getWeekStart(todayKey));
+  const monthStart = pakistanDateStart(`${todayKey.slice(0, 7)}-01`);
+
+  function earningsBetween(start: number, end: number) {
+    return earnings
+      .filter((item) => {
+        const created = new Date(item.created_at).getTime();
+        return created >= start && created < end;
+      })
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  }
+
+  const todayEarnings = earningsBetween(todayStart, tomorrowStart);
+  const weeklyEarnings = earningsBetween(weekStart, tomorrowStart);
+  const monthlyEarnings = earningsBetween(monthStart, tomorrowStart);
+
+  async function requestWithdrawal() {
+    setError("");
+    setSuccess("");
+
+    const requestedAmount = Number(amount);
+
+    if (!Number.isFinite(requestedAmount) || requestedAmount < 999) {
+      setError("Minimum withdrawal Rs. 999 hai.");
+      return;
+    }
+
+    if (requestedAmount > availableBalance) {
+      setError("Aapka available balance itna nahi hai.");
+      return;
+    }
+
+    if (!accountTitle.trim() || !accountNumber.trim()) {
+      setError("Account title aur account number dono zaroori hain.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    const { error: requestError } = await supabase.rpc(
+      "request_staff_withdrawal",
+      {
+        p_amount: requestedAmount,
+        p_payment_method: method,
+        p_account_title: accountTitle.trim(),
+        p_account_number: accountNumber.trim(),
+      }
+    );
+
+    setSubmitting(false);
+
+    if (requestError) {
+      setError(requestError.message);
+      return;
+    }
+
+    setSuccess("Withdrawal request successfully submit ho gayi hai.");
+    setAmount("");
+    await loadData();
+  }
+
+  if (loading) {
+    return <div style={styles.message}>Earnings load ho rahi hain...</div>;
   }
 
   return (
     <div style={styles.container}>
       <div style={styles.smallTitle}>STAFF WORKSPACE</div>
-
       <h2 style={styles.heading}>My Earnings</h2>
-
       <p style={styles.muted}>
-        Apni approved earnings aur payment history yahan check karein.
+        Apni approved earnings, available balance aur withdrawal history check karein.
       </p>
 
-      {loading ? (
-        <div style={styles.message}>Earnings load ho rahi hain...</div>
-      ) : error ? (
-        <div style={styles.error}>{error}</div>
-      ) : (
-        <>
-          <div style={styles.summaryGrid}>
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Total Earnings</div>
-              <div style={styles.amount}>
-                {formatAmount(totalEarnings)}
-              </div>
-            </div>
+      {error && <div style={styles.error}>{error}</div>}
+      {success && <div style={styles.success}>{success}</div>}
 
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Paid Earnings</div>
-              <div style={styles.amount}>
-                {formatAmount(paidEarnings)}
-              </div>
-            </div>
+      <div style={styles.grid}>
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>Total Lifetime Earnings</div>
+          <div style={styles.amount}>{money(totalLifetime)}</div>
+        </div>
 
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Unpaid Earnings</div>
-              <div style={styles.amount}>
-                {formatAmount(unpaidEarnings)}
-              </div>
-            </div>
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>Available Balance</div>
+          <div style={styles.amount}>{money(availableBalance)}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>Pending Withdrawal</div>
+          <div style={styles.amount}>{money(pendingWithdrawal)}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>Paid Earnings</div>
+          <div style={styles.amount}>{money(paidEarnings)}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>Today's Earnings</div>
+          <div style={styles.amount}>{money(todayEarnings)}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>This Week's Earnings</div>
+          <div style={styles.amount}>{money(weeklyEarnings)}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardLabel}>This Month's Earnings</div>
+          <div style={styles.amount}>{money(monthlyEarnings)}</div>
+        </div>
+      </div>
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionHeading}>Request Withdrawal</h3>
+        <p style={styles.muted}>
+          Minimum withdrawal Rs. 999 hai. Request Founder/Admin review karega.
+        </p>
+
+        <label>Withdrawal Amount (PKR)</label>
+        <input
+          style={styles.input}
+          type="number"
+          min="999"
+          placeholder="Enter amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+
+        <label>Payment Method</label>
+        <select
+          style={styles.input}
+          value={method}
+          onChange={(e) => setMethod(e.target.value)}
+        >
+          <option value="EasyPaisa">EasyPaisa</option>
+          <option value="JazzCash">JazzCash</option>
+          <option value="Bank">Bank</option>
+        </select>
+
+        <label>Account Title</label>
+        <input
+          style={styles.input}
+          type="text"
+          placeholder="Account holder name"
+          value={accountTitle}
+          onChange={(e) => setAccountTitle(e.target.value)}
+        />
+
+        <label>Account Number / IBAN</label>
+        <input
+          style={styles.input}
+          type="text"
+          placeholder="Enter account number"
+          value={accountNumber}
+          onChange={(e) => setAccountNumber(e.target.value)}
+        />
+
+        <button
+          style={{
+            ...styles.button,
+            opacity: submitting ? 0.6 : 1,
+          }}
+          disabled={submitting}
+          onClick={requestWithdrawal}
+        >
+          {submitting ? "Submitting..." : "Request Withdrawal"}
+        </button>
+      </div>
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionHeading}>Earnings History</h3>
+
+        {earnings.length === 0 ? (
+          <div style={styles.message}>Abhi koi approved earning available nahi hai.</div>
+        ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Amount</th>
+                  <th style={styles.th}>Withdrawn</th>
+                  <th style={styles.th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {earnings.map((item) => (
+                  <tr key={item.id}>
+                    <td style={styles.td}>{formatDate(item.created_at)}</td>
+                    <td style={styles.td}>{money(Number(item.amount))}</td>
+                    <td style={styles.td}>
+                      {money(Number(item.withdrawn_amount || 0))}
+                    </td>
+                    <td style={styles.td}>
+                      <span style={styles.status}>{item.payment_status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
+      </div>
 
-          <div style={styles.historySection}>
-            <h3 style={styles.historyHeading}>Payment History</h3>
+      <div style={styles.section}>
+        <h3 style={styles.sectionHeading}>Withdrawal History</h3>
 
-            {earnings.length === 0 ? (
-              <div style={styles.message}>
-                <strong>No Earnings Yet</strong>
-                <p style={styles.muted}>
-                  Abhi aapke account mein koi earning record available nahi hai.
-                  Approved work ki earning yahan show hogi.
-                </p>
-              </div>
-            ) : (
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Date</th>
-                      <th style={styles.th}>Amount</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.th}>Paid Date</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {earnings.map((item) => (
-                      <tr key={item.id}>
-                        <td style={styles.td}>
-                          {formatDate(item.created_at)}
-                        </td>
-
-                        <td style={styles.td}>
-                          {formatAmount(Number(item.amount))}
-                        </td>
-
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.status,
-                              ...statusStyle(item.payment_status),
-                            }}
-                          >
-                            {item.payment_status}
-                          </span>
-                        </td>
-
-                        <td style={styles.td}>
-                          {formatDate(item.paid_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {withdrawals.length === 0 ? (
+          <div style={styles.message}>Abhi koi withdrawal request nahi ki gayi.</div>
+        ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Request Date</th>
+                  <th style={styles.th}>Amount</th>
+                  <th style={styles.th}>Method</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Paid Date</th>
+                  <th style={styles.th}>Admin Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawals.map((item) => (
+                  <tr key={item.id}>
+                    <td style={styles.td}>{formatDate(item.created_at)}</td>
+                    <td style={styles.td}>{money(Number(item.amount))}</td>
+                    <td style={styles.td}>{item.payment_method}</td>
+                    <td style={styles.td}>
+                      <span style={styles.status}>{item.status}</span>
+                    </td>
+                    <td style={styles.td}>{formatDate(item.paid_at)}</td>
+                    <td style={styles.td}>{item.admin_note || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    background: "#17191d",
-    border: "1px solid #30343b",
-    borderRadius: "14px",
-    padding: "28px",
-    color: "#f1f3f5",
-  },
-  smallTitle: {
-    fontSize: "13px",
-    color: "#aeb4bd",
-  },
-  heading: {
-    fontSize: "24px",
-    margin: "10px 0",
-  },
-  muted: {
-    color: "#aeb4bd",
-    fontSize: "14px",
-    lineHeight: 1.7,
-  },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: "14px",
-    marginTop: "24px",
-  },
-  summaryCard: {
-    padding: "20px",
-    background: "#22262d",
-    border: "1px solid #3a414b",
-    borderRadius: "10px",
-    minWidth: 0,
-  },
-  summaryLabel: {
-    color: "#aeb4bd",
-    fontSize: "13px",
-    marginBottom: "12px",
-  },
-  amount: {
-    fontSize: "21px",
-    fontWeight: 700,
-    overflowWrap: "anywhere",
-  },
-  historySection: {
-    marginTop: "30px",
-  },
-  historyHeading: {
-    fontSize: "18px",
-    marginBottom: "16px",
-  },
-  message: {
-    marginTop: "16px",
-    padding: "20px",
-    background: "#22262d",
-    border: "1px solid #3a414b",
-    borderRadius: "10px",
-    color: "#f1f3f5",
-  },
-  error: {
-    marginTop: "20px",
-    padding: "16px",
-    background: "#2b2022",
-    border: "1px solid #63383d",
-    borderRadius: "10px",
-    color: "#ffb4b4",
-  },
-  tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
-    border: "1px solid #3a414b",
-    borderRadius: "10px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    minWidth: "570px",
-    textAlign: "left",
-  },
-  th: {
-    padding: "14px",
-    background: "#22262d",
-    color: "#aeb4bd",
-    fontSize: "13px",
-    borderBottom: "1px solid #3a414b",
-  },
-  td: {
-    padding: "14px",
-    fontSize: "13px",
-    borderBottom: "1px solid #30343b",
-  },
-  status: {
-    display: "inline-block",
-    padding: "5px 9px",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: 600,
-    textTransform: "capitalize",
-  },
-};
