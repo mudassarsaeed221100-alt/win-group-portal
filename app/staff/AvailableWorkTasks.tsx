@@ -60,4 +60,3 @@ export default function AvailableWorkTasks() {
     </div>
   );
 }
-s
