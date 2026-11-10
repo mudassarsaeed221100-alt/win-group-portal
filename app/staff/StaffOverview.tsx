@@ -1,96 +1,68 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
-
 type Profile = {
-  id: string;
   first_name: string | null;
   surname: string | null;
-  role: string | null;
+  role: string;
+  avatar_url: string | null;
+  team_code: string | null;
 };
 
-export default function StaffOverview() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+type SuperAdminProfile = {
+  first_name: string | null;
+  surname: string | null;
+  team_code: string | null;
+};
 
-  useEffect(() => {
-    async function loadProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+type StaffOverviewProps = {
+  profile: Profile;
+  superAdmin: SuperAdminProfile | null;
+};
 
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, first_name, surname, role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Profile error:", error.message);
-      } else {
-        setProfile(data);
-      }
-
-      setLoading(false);
-    }
-
-    loadProfile();
-  }, []);
-
-  if (loading) {
-    return <div style={styles.loading}>Loading Staff Portal...</div>;
-  }
-
-  if (!profile || profile.role !== "staff") {
-    return (
-      <div style={styles.container}>
-        <h2>Access Restricted</h2>
-        <p>Ye dashboard sirf Staff members ke liye hai.</p>
-      </div>
-    );
-  }
-
+export default function StaffOverview({
+  profile,
+  superAdmin,
+}: StaffOverviewProps) {
   const fullName =
-    `${profile.first_name || ""} ${profile.surname || ""}`.trim();
+    `${profile.first_name || ""} ${profile.surname || ""}`.trim() ||
+    "Staff Member";
+
+  const superAdminName =
+    `${superAdmin?.first_name || ""} ${superAdmin?.surname || ""}`.trim();
 
   return (
     <main style={styles.container}>
-      <header style={styles.header}>
-        <div>
-          <p style={styles.label}>WIN GROUP</p>
+      <section style={styles.welcomeCard}>
+        <div style={styles.welcomeContent}>
+          <p style={styles.label}>WOLF INDEPENDENT NATIONAL GROUP</p>
           <h1 style={styles.heading}>Staff Dashboard</h1>
           <p style={styles.welcome}>
-            Welcome, {fullName || "Staff Member"}
+            Welcome, {fullName}
+          </p>
+          <p style={styles.welcomeNote}>
+            WIN GROUP Staff Portal mein khush aamdeed.
           </p>
         </div>
-        <div style={styles.avatar}>
-          {(fullName || "S").charAt(0).toUpperCase()}
-        </div>
-      </header>
+
+        {profile.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt="Staff Profile"
+            style={styles.avatar}
+          />
+        ) : (
+          <div style={styles.avatarPlaceholder}>
+            {fullName.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </section>
 
       <section style={styles.grid}>
         <div style={styles.card}>
-          <p style={styles.cardLabel}>My Team</p>
-          <h2 style={styles.cardValue}>--</h2>
-          <p style={styles.cardNote}>Team information</p>
-        </div>
-
-        <div style={styles.card}>
-          <p style={styles.cardLabel}>My Earnings</p>
-          <h2 style={styles.cardValue}>Rs. 0</h2>
-          <p style={styles.cardNote}>Your earning record</p>
-        </div>
-
-        <div style={styles.card}>
-          <p style={styles.cardLabel}>My Profile</p>
+          <p style={styles.cardLabel}>Account Status</p>
           <h2 style={styles.cardValue}>Active</h2>
-          <p style={styles.cardNote}>Your personal account</p>
+          <p style={styles.cardNote}>Your staff account</p>
         </div>
 
         <div style={styles.card}>
@@ -98,25 +70,92 @@ export default function StaffOverview() {
           <h2 style={styles.cardValue}>Staff</h2>
           <p style={styles.cardNote}>WIN GROUP member</p>
         </div>
+
+        <div style={styles.card}>
+          <p style={styles.cardLabel}>Task System</p>
+          <h2 style={styles.cardValue}>Inactive</h2>
+          <p style={styles.cardNote}>Will activate in future</p>
+        </div>
+
+        <div style={styles.card}>
+          <p style={styles.cardLabel}>My Team Code</p>
+          <h2 style={styles.cardValueSmall}>
+            {profile.team_code || "Not available"}
+          </h2>
+          <p style={styles.cardNote}>Your assigned team code</p>
+        </div>
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>My Team Information</h2>
+        <p style={styles.description}>
+          Aapki team aur aapke Super Admin ki verified information.
+        </p>
+
+        <div style={styles.info}>
+          <span>Super Admin Name</span>
+          <strong>{superAdminName || "Not available"}</strong>
+        </div>
+
+        <div style={styles.info}>
+          <span>Super Admin Team Code</span>
+          <strong>{superAdmin?.team_code || "Not available"}</strong>
+        </div>
+
+        <div style={styles.info}>
+          <span>My Team Code</span>
+          <strong>{profile.team_code || "Not available"}</strong>
+        </div>
       </section>
 
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>My Account</h2>
         <p style={styles.description}>
-          Yahan aap apni profile aur personal information manage kar
-          sakte hain.
+          Aapki personal account information.
         </p>
+
         <div style={styles.info}>
           <span>First Name</span>
           <strong>{profile.first_name || "Not set"}</strong>
         </div>
+
         <div style={styles.info}>
           <span>Surname</span>
           <strong>{profile.surname || "Not set"}</strong>
         </div>
+
         <div style={styles.info}>
           <span>Account Role</span>
           <strong>Staff</strong>
+        </div>
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>Staff Workspace</h2>
+        <p style={styles.description}>
+          Aapke portal ke modules yahan available hain.
+        </p>
+
+        <div style={styles.workspaceGrid}>
+          <div style={styles.workspaceItem}>
+            <strong>Available Work Tasks</strong>
+            <span>Currently inactive</span>
+          </div>
+
+          <div style={styles.workspaceItem}>
+            <strong>Submit Work & Proof</strong>
+            <span>Currently inactive</span>
+          </div>
+
+          <div style={styles.workspaceItem}>
+            <strong>My Earnings</strong>
+            <span>Records integration pending</span>
+          </div>
+
+          <div style={styles.workspaceItem}>
+            <strong>Notifications</strong>
+            <span>Integration pending</span>
+          </div>
         </div>
       </section>
 
@@ -129,106 +168,156 @@ export default function StaffOverview() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    minHeight: "100vh",
-    padding: "24px",
-    background: "#f4f6fa",
-    color: "#172033",
+    width: "100%",
+    color: "#f4f4f5",
     fontFamily: "Arial, sans-serif",
   },
-  loading: {
-    padding: "40px",
-    textAlign: "center",
-    fontFamily: "Arial, sans-serif",
-  },
-  header: {
-    background: "#172033",
-    color: "#fff",
-    borderRadius: "16px",
-    padding: "28px",
+  welcomeCard: {
+    background: "linear-gradient(125deg, #242730, #111217)",
+    border: "1px solid #50535e",
+    borderRadius: 15,
+    padding: 28,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "15px",
+    gap: 20,
     flexWrap: "wrap",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+  },
+  welcomeContent: {
+    minWidth: 0,
   },
   label: {
-    color: "#aab8d0",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "2px",
+    color: "#aeb2bd",
+    fontSize: 11,
+    fontWeight: "bold",
+    letterSpacing: 2,
+    margin: "0 0 12px",
   },
   heading: {
-    fontSize: "28px",
-    margin: "8px 0",
+    color: "#ffffff",
+    fontSize: 27,
+    margin: "0 0 10px",
   },
   welcome: {
-    color: "#d1d9e8",
+    color: "#e0e1e5",
+    fontSize: 16,
     margin: 0,
   },
+  welcomeNote: {
+    color: "#a5a7b0",
+    fontSize: 13,
+    margin: "10px 0 0",
+  },
   avatar: {
-    width: "55px",
-    height: "55px",
+    width: 76,
+    height: 76,
+    minWidth: 76,
+    minHeight: 76,
+    flexShrink: 0,
     borderRadius: "50%",
-    background: "#365b9d",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "24px",
-    fontWeight: 700,
+    objectFit: "cover",
+    display: "block",
+    border: "3px solid #858995",
+  },
+  avatarPlaceholder: {
+    width: 76,
+    height: 76,
+    minWidth: 76,
+    flexShrink: 0,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #777b87, #292b33)",
+    border: "3px solid #858995",
+    display: "grid",
+    placeItems: "center",
+    fontSize: 30,
+    fontWeight: "bold",
   },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: "16px",
-    marginTop: "22px",
+    gap: 15,
+    marginTop: 20,
   },
   card: {
-    background: "#fff",
-    border: "1px solid #e5e9f0",
-    borderRadius: "14px",
-    padding: "22px",
+    background: "linear-gradient(145deg, #1b1d24, #111217)",
+    border: "1px solid #41434b",
+    borderRadius: 12,
+    padding: 20,
+    minWidth: 0,
   },
   cardLabel: {
-    color: "#68758a",
-    fontSize: "14px",
+    color: "#a5a7b0",
+    fontSize: 13,
     margin: 0,
   },
   cardValue: {
-    fontSize: "25px",
-    margin: "14px 0 8px",
+    color: "#ffffff",
+    fontSize: 23,
+    margin: "15px 0 7px",
+  },
+  cardValueSmall: {
+    color: "#ffffff",
+    fontSize: 17,
+    overflowWrap: "anywhere",
+    margin: "15px 0 7px",
   },
   cardNote: {
-    color: "#8994a6",
-    fontSize: "12px",
+    color: "#858995",
+    fontSize: 12,
     margin: 0,
   },
   section: {
-    background: "#fff",
-    border: "1px solid #e5e9f0",
-    borderRadius: "14px",
-    padding: "24px",
-    marginTop: "22px",
+    background: "linear-gradient(145deg, #1b1d24, #111217)",
+    border: "1px solid #41434b",
+    borderRadius: 13,
+    padding: 23,
+    marginTop: 20,
   },
   sectionTitle: {
-    marginTop: 0,
-    fontSize: "20px",
+    color: "#ffffff",
+    fontSize: 19,
+    margin: "0 0 9px",
   },
   description: {
-    color: "#68758a",
-    fontSize: "14px",
+    color: "#a5a7b0",
+    fontSize: 13,
+    lineHeight: 1.6,
+    margin: "0 0 12px",
   },
   info: {
     display: "flex",
     justifyContent: "space-between",
-    gap: "12px",
-    padding: "14px 0",
-    borderBottom: "1px solid #edf0f4",
-    fontSize: "14px",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+    padding: "15px 0",
+    borderBottom: "1px solid #353740",
+    color: "#b9bbc3",
+    fontSize: 13,
+  },
+  workspaceGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 12,
+    marginTop: 15,
+  },
+  workspaceItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    padding: 16,
+    background: "#202229",
+    border: "1px solid #41434b",
+    borderRadius: 9,
+    minWidth: 0,
+    fontSize: 13,
+    color: "#e5e5e8",
   },
   footer: {
     textAlign: "center",
-    color: "#8994a6",
-    fontSize: "12px",
-    marginTop: "30px",
+    color: "#777b87",
+    fontSize: 11,
+    marginTop: 25,
   },
 };
