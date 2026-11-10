@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, ChangeEvent, FormEvent } from "react";
 import { supabase } from "../../lib/supabase";
 
 type SelectedTask = {
@@ -26,12 +26,45 @@ export default function SubmitWork({
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error">(
-    "success"
-  );
-  const [fileInputKey, setFileInputKey] = useState(0);
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
 
-  async function submitWork() {
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setProofFile(null);
+      return;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setMessageType("error");
+      setMessage("Sirf JPG, PNG, WebP ya PDF file upload kar sakte hain.");
+      setProofFile(null);
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessageType("error");
+      setMessage("File ka size 5 MB se kam hona chahiye.");
+      setProofFile(null);
+      event.target.value = "";
+      return;
+    }
+
+    setMessage("");
+    setProofFile(file);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setMessage("");
 
     if (!selectedTask) {
@@ -42,28 +75,13 @@ export default function SubmitWork({
 
     if (!description.trim()) {
       setMessageType("error");
-      setMessage("Apne completed work ki description likhein.");
+      setMessage("Work description likhna zaroori hai.");
       return;
     }
 
     if (!proofFile) {
       setMessageType("error");
-      setMessage("Proof image ya PDF file select karein.");
-      return;
-    }
-
-    const isImage = proofFile.type.startsWith("image/");
-    const isPdf = proofFile.type === "application/pdf";
-
-    if (!isImage && !isPdf) {
-      setMessageType("error");
-      setMessage("Sirf image ya PDF file upload kar sakte hain.");
-      return;
-    }
-
-    if (proofFile.size > 5 * 1024 * 1024) {
-      setMessageType("error");
-      setMessage("Proof file ka size 5 MB se kam hona chahiye.");
+      setMessage("Apna work proof upload karein.");
       return;
     }
 
@@ -75,26 +93,25 @@ export default function SubmitWork({
         error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError) throw userError;
-      if (!user) throw new Error("Session expire ho gaya. Dobara login karein.");
+      if (userError || !user) {
+        throw new Error("Session expire ho gaya. Dobara login karein.");
+      }
 
-      const safeFileName = proofFile.name.replace(
-        /[^a-zA-Z0-9._-]/g,
-        "_"
-      );
-
+      const safeFileName = proofFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = `${user.id}/${Date.now()}-${safeFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("work-proofs")
         .upload(filePath, proofFile, {
-          upsert: false,
           contentType: proofFile.type,
+          upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        throw new Error("Proof upload nahi hua: " + uploadError.message);
+      }
 
-      const { error: submissionError } = await supabase
+      const { error: insertError } = await supabase
         .from("work_submissions")
         .insert({
           task_id: selectedTask.id,
@@ -105,19 +122,25 @@ export default function SubmitWork({
           earning_amount: 0,
         });
 
-      if (submissionError) throw submissionError;
+      if (insertError) {
+        await supabase.storage.from("work-proofs").remove([filePath]);
+        throw new Error("Submission save nahi hui: " + insertError.message);
+      }
 
       setMessageType("success");
-      setMessage("Aapka work aur proof successfully submit ho gaya hai. Review ka intezar karein.");
+      setMessage("Aapka work aur proof successfully submit ho gaya. Review pending hai.");
       setDescription("");
       setProofFile(null);
-      setFileInputKey((previous) => previous + 1);
+
+      const fileInput = document.getElementById(
+        "work-proof-file"
+      ) as HTMLInputElement | null;
+
+      if (fileInput) fileInput.value = "";
     } catch (error) {
       setMessageType("error");
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Submission complete nahi ho saki."
+        error instanceof Error ? error.message : "Submission mein error aa gaya."
       );
     } finally {
       setSubmitting(false);
@@ -131,203 +154,252 @@ export default function SubmitWork({
       year: "numeric",
     });
 
+  if (!selectedTask) {
+    return (
+      <div style={styles.card}>
+        <div style={styles.smallTitle}>STAFF WORKSPACE</div>
+        <h2 style={styles.heading}>Submit Work & Proof</h2>
+        <p style={styles.muted}>
+          Proof submit karne ke liye pehle available task select karein.
+        </p>
+        <button type="button" onClick={onBackToTasks} style={styles.button}>
+          Go to Available Tasks
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        background: "#17191d",
-        border: "1px solid #30343b",
-        borderRadius: "14px",
-        padding: "28px",
-        color: "#f1f3f5",
-      }}
-    >
-      <div style={{ fontSize: "13px", color: "#aeb4bd" }}>
-        STAFF WORKSPACE
+    <div style={styles.card}>
+      <div style={styles.smallTitle}>STAFF WORKSPACE</div>
+      <h2 style={styles.heading}>Submit Work & Proof</h2>
+
+      <div style={styles.taskBox}>
+        <div style={styles.taskLabel}>SELECTED TASK</div>
+        <h3 style={styles.taskTitle}>{selectedTask.title}</h3>
+
+        <p style={styles.muted}>
+          {selectedTask.description || "No task description provided."}
+        </p>
+
+        <div style={styles.reward}>
+          Reward: Rs.{" "}
+          {Number(selectedTask.reward_amount).toLocaleString("en-PK")}
+        </div>
+
+        {selectedTask.deadline && (
+          <div style={styles.deadline}>
+            Deadline: {formatDate(selectedTask.deadline)}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onBackToTasks}
+          style={styles.changeButton}
+          disabled={submitting}
+        >
+          Change Task
+        </button>
       </div>
 
-      <h2 style={{ fontSize: "24px", margin: "10px 0" }}>
-        Submit Work & Proof
-      </h2>
+      <form onSubmit={handleSubmit}>
+        <label style={styles.label}>Work Description</label>
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Apne completed work ki details likhein..."
+          rows={5}
+          style={styles.textarea}
+          disabled={submitting}
+          required
+        />
 
-      <p style={{ color: "#aeb4bd", lineHeight: 1.7 }}>
-        Selected task ka completed work aur uska proof yahan submit karein.
-      </p>
+        <label style={styles.label}>Upload Work Proof</label>
+        <div style={styles.uploadBox}>
+          <input
+            id="work-proof-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={handleFileChange}
+            disabled={submitting}
+            style={styles.fileInput}
+          />
 
-      {!selectedTask ? (
-        <div
-          style={{
-            marginTop: "24px",
-            padding: "20px",
-            borderRadius: "10px",
-            background: "#22262d",
-            border: "1px solid #3a414b",
-          }}
-        >
-          <strong>Task Select Nahi Hua</strong>
-
-          <p style={{ color: "#aeb4bd", fontSize: "14px", lineHeight: 1.7 }}>
-            Proof submit karne se pehle Available Work Tasks mein se task select karein.
+          <p style={styles.fileNote}>
+            JPG, PNG, WebP ya PDF. Maximum file size 5 MB.
           </p>
 
-          <button
-            type="button"
-            onClick={onBackToTasks}
-            style={buttonStyle}
-          >
-            Available Work Tasks
-          </button>
+          {proofFile && (
+            <div style={styles.fileName}>
+              Selected: {proofFile.name}
+            </div>
+          )}
         </div>
-      ) : (
-        <>
+
+        {message && (
           <div
             style={{
-              marginTop: "24px",
-              padding: "20px",
-              borderRadius: "10px",
-              background: "#22262d",
-              border: "1px solid #555b68",
+              ...styles.message,
+              ...(messageType === "success"
+                ? styles.successMessage
+                : styles.errorMessage),
             }}
           >
-            <div style={{ color: "#aeb4bd", fontSize: "12px" }}>
-              SELECTED TASK
-            </div>
-
-            <h3 style={{ margin: "9px 0", fontSize: "19px" }}>
-              {selectedTask.title}
-            </h3>
-
-            <p style={{ color: "#aeb4bd", fontSize: "14px", lineHeight: 1.7 }}>
-              {selectedTask.description || "No task description provided."}
-            </p>
-
-            <div style={{ fontSize: "14px", marginTop: "12px" }}>
-              Reward: Rs. {Number(selectedTask.reward_amount).toLocaleString("en-PK")}
-            </div>
-
-            {selectedTask.deadline && (
-              <div style={{ color: "#aeb4bd", fontSize: "13px", marginTop: "7px" }}>
-                Deadline: {formatDate(selectedTask.deadline)}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={onBackToTasks}
-              style={{
-                ...buttonStyle,
-                background: "#343943",
-                color: "#f1f3f5",
-                border: "1px solid #555b68",
-              }}
-            >
-              Change Task
-            </button>
+            {message}
           </div>
+        )}
 
-          <div style={{ marginTop: "24px" }}>
-            <label style={labelStyle}>
-              Work Description
-            </label>
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{
+            ...styles.button,
+            opacity: submitting ? 0.6 : 1,
+            cursor: submitting ? "not-allowed" : "pointer",
+          }}
+        >
+          {submitting ? "Submitting..." : "Submit Work & Proof"}
+        </button>
+      </form>
 
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Apne completed work ki details likhein..."
-              rows={5}
-              style={{
-                ...inputStyle,
-                resize: "vertical",
-              }}
-            />
-
-            <label style={{ ...labelStyle, marginTop: "20px" }}>
-              Upload Work Proof
-            </label>
-
-            <input
-              key={fileInputKey}
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(event) =>
-                setProofFile(event.target.files?.[0] || null)
-              }
-              style={{
-                display: "block",
-                width: "100%",
-                color: "#d1d5db",
-                marginTop: "10px",
-              }}
-            />
-
-            <p style={{ color: "#aeb4bd", fontSize: "12px" }}>
-              Image ya PDF. Maximum file size 5 MB.
-            </p>
-
-            {proofFile && (
-              <p style={{ color: "#d1d5db", fontSize: "13px" }}>
-                Selected file: {proofFile.name}
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={submitWork}
-              disabled={submitting}
-              style={{
-                ...buttonStyle,
-                opacity: submitting ? 0.6 : 1,
-                cursor: submitting ? "not-allowed" : "pointer",
-              }}
-            >
-              {submitting ? "Submitting..." : "Submit Work & Proof"}
-            </button>
-
-            {message && (
-              <p
-                style={{
-                  marginTop: "16px",
-                  fontSize: "14px",
-                  lineHeight: 1.6,
-                  color: messageType === "success" ? "#a7e0b5" : "#ffaaaa",
-                }}
-              >
-                {message}
-              </p>
-            )}
-          </div>
-        </>
-      )}
+      <p style={styles.footerNote}>
+        Submission ke baad status Pending rahega. Review aur approval ke baad
+        earning update hogi.
+      </p>
     </div>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  color: "#d7d9df",
-  fontSize: "14px",
-  fontWeight: 600,
-  marginBottom: "9px",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "13px",
-  background: "#101116",
-  border: "1px solid #4a4d57",
-  borderRadius: "8px",
-  color: "#f1f3f5",
-  fontSize: "14px",
-  outline: "none",
-};
-
-const buttonStyle: React.CSSProperties = {
-  marginTop: "16px",
-  padding: "11px 16px",
-  border: "1px solid #888d99",
-  borderRadius: "8px",
-  background: "#e5e7eb",
-  color: "#17191d",
-  fontWeight: 600,
-  cursor: "pointer",
+const styles: { [key: string]: React.CSSProperties } = {
+  card: {
+    background: "#17191d",
+    border: "1px solid #30343b",
+    borderRadius: "14px",
+    padding: "28px",
+    color: "#f1f3f5",
+  },
+  smallTitle: {
+    fontSize: "13px",
+    color: "#aeb4bd",
+  },
+  heading: {
+    fontSize: "24px",
+    margin: "10px 0",
+  },
+  muted: {
+    color: "#aeb4bd",
+    fontSize: "14px",
+    lineHeight: 1.7,
+    whiteSpace: "pre-wrap",
+  },
+  taskBox: {
+    margin: "22px 0",
+    padding: "20px",
+    background: "#22262d",
+    border: "1px solid #3a414b",
+    borderRadius: "10px",
+  },
+  taskLabel: {
+    color: "#aeb4bd",
+    fontSize: "12px",
+    letterSpacing: "1px",
+  },
+  taskTitle: {
+    fontSize: "19px",
+    margin: "10px 0",
+  },
+  reward: {
+    marginTop: "14px",
+    fontSize: "14px",
+    fontWeight: 600,
+  },
+  deadline: {
+    marginTop: "8px",
+    fontSize: "13px",
+    color: "#aeb4bd",
+  },
+  changeButton: {
+    marginTop: "16px",
+    padding: "9px 14px",
+    border: "1px solid #59616d",
+    borderRadius: "7px",
+    background: "transparent",
+    color: "#f1f3f5",
+    cursor: "pointer",
+  },
+  label: {
+    display: "block",
+    margin: "18px 0 9px",
+    fontSize: "14px",
+    fontWeight: 600,
+  },
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "13px",
+    background: "#22262d",
+    color: "#f1f3f5",
+    border: "1px solid #3a414b",
+    borderRadius: "8px",
+    outline: "none",
+    resize: "vertical",
+    fontSize: "14px",
+  },
+  uploadBox: {
+    padding: "16px",
+    background: "#22262d",
+    border: "1px solid #3a414b",
+    borderRadius: "8px",
+  },
+  fileInput: {
+    width: "100%",
+    color: "#f1f3f5",
+  },
+  fileNote: {
+    color: "#aeb4bd",
+    fontSize: "12px",
+    marginBottom: 0,
+  },
+  fileName: {
+    marginTop: "10px",
+    fontSize: "13px",
+    color: "#d1d5db",
+    overflowWrap: "anywhere",
+  },
+  message: {
+    padding: "13px",
+    borderRadius: "8px",
+    marginTop: "18px",
+    fontSize: "14px",
+    lineHeight: 1.6,
+  },
+  successMessage: {
+    background: "#1c3027",
+    border: "1px solid #315b43",
+    color: "#a8e6bf",
+  },
+  errorMessage: {
+    background: "#2b2022",
+    border: "1px solid #63383d",
+    color: "#ffb4b4",
+  },
+  button: {
+    width: "100%",
+    marginTop: "20px",
+    padding: "13px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#e5e7eb",
+    color: "#17191d",
+    fontWeight: 700,
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+  footerNote: {
+    marginTop: "18px",
+    color: "#aeb4bd",
+    fontSize: "13px",
+    lineHeight: 1.6,
+  },
 };
