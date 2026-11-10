@@ -36,6 +36,15 @@ type SuperAdminProfile = {
   team_code: string | null;
 };
 
+type SelectedTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  reward_amount: number;
+  deadline: string | null;
+  created_at: string;
+};
+
 const menuItems: { id: MenuKey; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "tasks", label: "Available Work Tasks" },
@@ -55,6 +64,9 @@ export default function StaffDashboard() {
   const [superAdmin, setSuperAdmin] =
     useState<SuperAdminProfile | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [selectedTask, setSelectedTask] =
+    useState<SelectedTask | null>(null);
 
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
@@ -264,10 +276,22 @@ export default function StaffDashboard() {
         );
 
       case "tasks":
-        return <AvailableWorkTasks />;
+        return (
+          <AvailableWorkTasks
+            onSelectTask={(task) => {
+              setSelectedTask(task);
+              setActiveMenu("submit");
+            }}
+          />
+        );
 
       case "submit":
-        return <SubmitWork />;
+        return (
+          <SubmitWork
+            selectedTask={selectedTask}
+            onBackToTasks={() => setActiveMenu("tasks")}
+          />
+        );
 
       case "earnings":
         return <MyEarnings />;
