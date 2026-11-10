@@ -17,6 +17,18 @@ import Notifications from "./Notifications";
 import FlexibleWork from "./FlexibleWork";
 import EarningsLedger from "./EarningsLedger";
 import FounderSupport from "./FounderSupport";
+import TeamOverview from "./TeamOverview";
+import TeamHierarchy from "./TeamHierarchy";
+import ReferralNetwork from "./ReferralNetwork";
+import SuperAdminManagement from "./SuperAdminManagement";
+import TeamPerformance from "./TeamPerformance";
+import CompanyMembers from "./CompanyMembers";
+import ProductManagement from "./ProductManagement";
+import ProductSalesOrders from "./ProductSalesOrders";
+import PaymentVerification from "./PaymentVerification";
+import ProductDelivery from "./ProductDelivery";
+import CommissionBonusManagement from "./CommissionBonusManagement";
+import SecondFounderManagement from "./SecondFounderManagement";
 
 const menuItems = [
   "Overview",
@@ -31,6 +43,18 @@ const menuItems = [
   "Flexible Work",
   "Earnings Ledger",
   "Support Management",
+  "Team Overview",
+  "Team Hierarchy",
+  "Referral Network",
+  "Super Admin Management",
+  "Team Performance",
+  "Company-wide Members",
+  "Product Management",
+  "Product Sales & Orders",
+  "Payment Verification",
+  "Product Delivery",
+  "Commission & Bonus Management",
+  "Second Founder Management",
 ];
 
 const menuIcons: Record<string, string> = {
@@ -46,6 +70,18 @@ const menuIcons: Record<string, string> = {
   "Flexible Work": "▣",
   "Earnings Ledger": "₹",
   "Support Management": "✉",
+  "Team Overview": "◫",
+  "Team Hierarchy": "⌘",
+  "Referral Network": "⇄",
+  "Super Admin Management": "♙",
+  "Team Performance": "▥",
+  "Company-wide Members": "☷",
+  "Product Management": "▣",
+  "Product Sales & Orders": "▤",
+  "Payment Verification": "✓",
+  "Product Delivery": "➜",
+  "Commission & Bonus Management": "%",
+  "Second Founder Management": "◆",
 };
 
 const profileItems = [
@@ -393,6 +429,30 @@ export default function Dashboard() {
           <EarningsLedger />
         ) : activeMenu === "Support Management" ? (
           <FounderSupport />
+        ) : activeMenu === "Team Overview" ? (
+          <TeamOverview />
+        ) : activeMenu === "Team Hierarchy" ? (
+          <TeamHierarchy />
+        ) : activeMenu === "Referral Network" ? (
+          <ReferralNetwork />
+        ) : activeMenu === "Super Admin Management" ? (
+          <SuperAdminManagement />
+        ) : activeMenu === "Team Performance" ? (
+          <TeamPerformance />
+        ) : activeMenu === "Company-wide Members" ? (
+          <CompanyMembers />
+        ) : activeMenu === "Product Management" ? (
+          <ProductManagement />
+        ) : activeMenu === "Product Sales & Orders" ? (
+          <ProductSalesOrders />
+        ) : activeMenu === "Payment Verification" ? (
+          <PaymentVerification />
+        ) : activeMenu === "Product Delivery" ? (
+          <ProductDelivery />
+        ) : activeMenu === "Commission & Bonus Management" ? (
+          <CommissionBonusManagement />
+        ) : activeMenu === "Second Founder Management" ? (
+          <SecondFounderManagement />
         ) : activeMenu === "Overview" ? (
           <>
             <div className="welcome">
@@ -457,7 +517,7 @@ export default function Dashboard() {
               <div className="hierarchy">
                 {[
                   ["◆", "Founder / Owner", "Ultimate System Authority"],
-                  ["◈", "Boss", "Management Authority"],
+                  ["◈", "Super Admin", "Manages Own Team"],
                   ["◇", "Admin", "Manages Assigned Team"],
                   ["○", "Staff", "Performs Assigned Work"],
                 ].map(([symbol, title, note], index) => (
