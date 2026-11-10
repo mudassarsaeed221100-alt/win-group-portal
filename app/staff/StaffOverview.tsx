@@ -1,6 +1,9 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
+
 type Profile = {
   first_name: string | null;
   surname: string | null;
@@ -20,10 +23,27 @@ type StaffOverviewProps = {
   superAdmin: SuperAdminProfile | null;
 };
 
+type DashboardStats = {
+  availableTasks: number | null;
+  submissions: number | null;
+  earnings: number | null;
+  notifications: number | null;
+};
+
+const initialStats: DashboardStats = {
+  availableTasks: null,
+  submissions: null,
+  earnings: null,
+  notifications: null,
+};
+
 export default function StaffOverview({
   profile,
   superAdmin,
 }: StaffOverviewProps) {
+  const [stats, setStats] = useState<DashboardStats>(initialStats);
+  const [loading, setLoading] = useState(true);
+
   const fullName =
     `${profile.first_name || ""} ${profile.surname || ""}`.trim() ||
     "Staff Member";
@@ -31,15 +51,93 @@ export default function StaffOverview({
   const superAdminName =
     `${superAdmin?.first_name || ""} ${superAdmin?.surname || ""}`.trim();
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDashboardData() {
+      setLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        if (mounted) setLoading(false);
+        return;
+      }
+
+      const [tasksResult, submissionsResult, earningsResult, notificationsResult] =
+        await Promise.all([
+          supabase
+            .from("work_tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "active"),
+
+          supabase
+            .from("work_submissions")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id),
+
+          supabase
+            .from("earnings_ledger")
+            .select("amount")
+            .eq("user_id", user.id),
+
+          supabase
+            .from("notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "active"),
+        ]);
+
+      const earningsTotal = earningsResult.error
+        ? null
+        : (earningsResult.data || []).reduce(
+            (total, item) => total + Number(item.amount || 0),
+            0
+          );
+
+      if (mounted) {
+        setStats({
+          availableTasks: tasksResult.error ? null : tasksResult.count ?? 0,
+          submissions: submissionsResult.error
+            ? null
+            : submissionsResult.count ?? 0,
+          earnings: earningsTotal,
+          notifications: notificationsResult.error
+            ? null
+            : notificationsResult.count ?? 0,
+        });
+
+        setLoading(false);
+      }
+    }
+
+    loadDashboardData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const showNumber = (value: number | null) => {
+    if (loading) return "Loading...";
+    if (value === null) return "Unavailable";
+    return value.toLocaleString("en-PK");
+  };
+
+  const showMoney = (value: number | null) => {
+    if (loading) return "Loading...";
+    if (value === null) return "Unavailable";
+    return `Rs. ${value.toLocaleString("en-PK")}`;
+  };
+
   return (
     <main style={styles.container}>
       <section style={styles.welcomeCard}>
         <div style={styles.welcomeContent}>
           <p style={styles.label}>WOLF INDEPENDENT NATIONAL GROUP</p>
           <h1 style={styles.heading}>Staff Dashboard</h1>
-          <p style={styles.welcome}>
-            Welcome, {fullName}
-          </p>
+          <p style={styles.welcome}>Welcome, {fullName}</p>
           <p style={styles.welcomeNote}>
             WIN GROUP Staff Portal mein khush aamdeed.
           </p>
@@ -61,20 +159,24 @@ export default function StaffOverview({
       <section style={styles.grid}>
         <div style={styles.card}>
           <p style={styles.cardLabel}>Account Status</p>
-          <h2 style={styles.cardValue}>Active</h2>
-          <p style={styles.cardNote}>Your staff account</p>
+          <h2 style={styles.cardValue}>Registered</h2>
+          <p style={styles.cardNote}>Staff profile available</p>
         </div>
 
         <div style={styles.card}>
           <p style={styles.cardLabel}>Account Role</p>
-          <h2 style={styles.cardValue}>Staff</h2>
-          <p style={styles.cardNote}>WIN GROUP member</p>
+          <h2 style={styles.cardValue}>
+            {profile.role === "staff" ? "Staff" : profile.role}
+          </h2>
+          <p style={styles.cardNote}>Your account role</p>
         </div>
 
         <div style={styles.card}>
-          <p style={styles.cardLabel}>Task System</p>
-          <h2 style={styles.cardValue}>Inactive</h2>
-          <p style={styles.cardNote}>Will activate in future</p>
+          <p style={styles.cardLabel}>Available Tasks</p>
+          <h2 style={styles.cardValue}>
+            {showNumber(stats.availableTasks)}
+          </h2>
+          <p style={styles.cardNote}>Active tasks available to you</p>
         </div>
 
         <div style={styles.card}>
@@ -89,7 +191,7 @@ export default function StaffOverview({
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>My Team Information</h2>
         <p style={styles.description}>
-          Aapki team aur aapke Super Admin ki verified information.
+          Aapki team aur aapke Super Admin ki information.
         </p>
 
         <div style={styles.info}>
@@ -126,42 +228,40 @@ export default function StaffOverview({
 
         <div style={styles.info}>
           <span>Account Role</span>
-          <strong>Staff</strong>
+          <strong>{profile.role}</strong>
         </div>
       </section>
 
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Staff Workspace</h2>
         <p style={styles.description}>
-          Aapke portal ke modules yahan available hain.
+          Aapke staff account ke actual records.
         </p>
 
         <div style={styles.workspaceGrid}>
           <div style={styles.workspaceItem}>
             <strong>Available Work Tasks</strong>
-            <span>Currently inactive</span>
+            <span>{showNumber(stats.availableTasks)} active tasks</span>
           </div>
 
           <div style={styles.workspaceItem}>
-            <strong>Submit Work & Proof</strong>
-            <span>Currently inactive</span>
+            <strong>My Submissions</strong>
+            <span>{showNumber(stats.submissions)} submitted records</span>
           </div>
 
           <div style={styles.workspaceItem}>
             <strong>My Earnings</strong>
-            <span>Records integration pending</span>
+            <span>{showMoney(stats.earnings)} total ledger amount</span>
           </div>
 
           <div style={styles.workspaceItem}>
             <strong>Notifications</strong>
-            <span>Integration pending</span>
+            <span>{showNumber(stats.notifications)} active notifications</span>
           </div>
         </div>
       </section>
 
-      <p style={styles.footer}>
-        WIN GROUP Management System
-      </p>
+      <p style={styles.footer}>WIN GROUP Management System</p>
     </main>
   );
 }
@@ -255,6 +355,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#ffffff",
     fontSize: 23,
     margin: "15px 0 7px",
+    overflowWrap: "anywhere",
   },
   cardValueSmall: {
     color: "#ffffff",
