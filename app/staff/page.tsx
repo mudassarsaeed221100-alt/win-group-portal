@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import StaffOverview from "./StaffOverview";
@@ -19,6 +19,7 @@ type StaffProfile = {
   first_name: string | null;
   surname: string | null;
   role: string;
+  avatar_url: string | null;
 };
 
 const menuItems: { id: MenuKey; label: string }[] = [
@@ -39,6 +40,12 @@ export default function StaffDashboard() {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [firstName, setFirstName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+
   useEffect(() => {
     let active = true;
 
@@ -56,7 +63,7 @@ export default function StaffDashboard() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("first_name, surname, role")
+        .select("first_name, surname, role, avatar_url")
         .eq("id", user.id)
         .single();
 
@@ -69,6 +76,8 @@ export default function StaffDashboard() {
       }
 
       setProfile(data);
+      setFirstName(data.first_name || "");
+      setSurname(data.surname || "");
       setLoading(false);
     }
 
@@ -84,12 +93,118 @@ export default function StaffDashboard() {
     router.replace("/");
   }
 
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setProfileMessage("");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setProfileMessage("Session expired. Please login again.");
+      setSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        first_name: firstName.trim(),
+        surname: surname.trim(),
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      setProfileMessage("Profile save nahi hua: " + error.message);
+    } else {
+      setProfile((previous) =>
+        previous
+          ? {
+              ...previous,
+              first_name: firstName.trim(),
+              surname: surname.trim(),
+            }
+          : previous
+      );
+      setProfileMessage("Profile successfully update ho gaya.");
+    }
+
+    setSaving(false);
+  }
+
+  async function uploadPicture(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setProfileMessage("");
+
+    if (!file.type.startsWith("image/")) {
+      setProfileMessage("Sirf image file select karein.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileMessage("Picture ka size 2 MB se kam hona chahiye.");
+      event.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("Session expired. Please login again.");
+      }
+
+      const extension = file.name.split(".").pop() || "jpg";
+      const filePath = `${user.id}/profile-${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const imageUrl = publicData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: imageUrl })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile((previous) =>
+        previous ? { ...previous, avatar_url: imageUrl } : previous
+      );
+
+      setProfileMessage("Profile picture successfully update ho gayi.");
+    } catch (error) {
+      setProfileMessage(
+        error instanceof Error ? error.message : "Picture upload nahi hui."
+      );
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
   if (loading) {
-    return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        Loading Staff Portal...
-      </div>
-    );
+    return <div style={styles.loading}>Loading Staff Portal...</div>;
   }
 
   if (!profile) return null;
@@ -140,16 +255,77 @@ export default function StaffDashboard() {
       case "profile":
         return (
           <section style={styles.contentCard}>
-            <h2>My Profile</h2>
+            <h2 style={styles.sectionTitle}>My Profile</h2>
             <p style={styles.muted}>
-              Aapki personal account information.
+              Apni personal information aur profile picture manage karein.
             </p>
 
-            <InfoRow label="First Name" value={profile.first_name || "Not set"} />
-            <InfoRow label="Surname" value={profile.surname || "Not set"} />
-            <InfoRow label="Full Name" value={fullName} />
-            <InfoRow label="Account Role" value="Staff" />
-            <InfoRow label="Account Status" value="Active" />
+            <div style={styles.profilePictureArea}>
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="Profile"
+                  style={styles.profilePicture}
+                />
+              ) : (
+                <div style={styles.profilePicturePlaceholder}>
+                  {fullName.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <div>
+                <label style={styles.uploadButton}>
+                  {uploading ? "Uploading..." : "Change Picture"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={uploadPicture}
+                    disabled={uploading}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                <p style={styles.muted}>
+                  JPG, PNG ya WebP. Maximum 2 MB.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={saveProfile}>
+              <label style={styles.fieldLabel}>First Name</label>
+              <input
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                required
+                style={styles.input}
+                placeholder="First Name"
+              />
+
+              <label style={styles.fieldLabel}>Surname</label>
+              <input
+                value={surname}
+                onChange={(event) => setSurname(event.target.value)}
+                required
+                style={styles.input}
+                placeholder="Surname"
+              />
+
+              <div style={styles.infoRow}>
+                <span>Account Role</span>
+                <strong>Staff</strong>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                style={styles.saveButton}
+              >
+                {saving ? "Saving..." : "Save Profile"}
+              </button>
+            </form>
+
+            {profileMessage && (
+              <p style={styles.message}>{profileMessage}</p>
+            )}
           </section>
         );
 
@@ -168,25 +344,41 @@ export default function StaffDashboard() {
 
   return (
     <div style={styles.layout}>
+      {sidebarOpen && (
+        <div
+          style={styles.overlay}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <aside
         style={{
           ...styles.sidebar,
-          ...(sidebarOpen ? styles.sidebarOpen : {}),
+          transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
         }}
       >
         <div style={styles.brand}>
-          <h2 style={{ margin: 0 }}>WIN GROUP</h2>
+          <h2 style={styles.brandTitle}>WIN GROUP</h2>
           <p style={styles.brandSubtitle}>
             WOLF INDEPENDENT NATIONAL GROUP
           </p>
         </div>
 
         <div style={styles.userBox}>
-          <div style={styles.avatar}>
-            {fullName.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <strong>{fullName}</strong>
+          {profile.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt="Profile"
+              style={styles.sidebarAvatar}
+            />
+          ) : (
+            <div style={styles.sidebarAvatarPlaceholder}>
+              {fullName.charAt(0).toUpperCase()}
+            </div>
+          )}
+
+          <div style={{ minWidth: 0 }}>
+            <strong style={styles.userName}>{fullName}</strong>
             <p style={styles.userRole}>Staff Member</p>
           </div>
         </div>
@@ -223,21 +415,35 @@ export default function StaffDashboard() {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             style={styles.hamburger}
+            aria-label="Toggle sidebar"
           >
             ☰
           </button>
 
           <div>
-            <strong>Staff Workspace</strong>
+            <strong style={styles.topbarTitle}>WIN GROUP</strong>
             <p style={styles.topbarSubtitle}>
-              Welcome, {fullName}
+              Staff Workspace
             </p>
+          </div>
+
+          <div style={styles.topbarUser}>
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Profile"
+                style={styles.topbarAvatar}
+              />
+            ) : (
+              <div style={styles.topbarAvatarPlaceholder}>
+                {fullName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <strong>{fullName}</strong>
           </div>
         </header>
 
-        <div style={styles.pageContent}>
-          {renderContent()}
-        </div>
+        <div style={styles.pageContent}>{renderContent()}</div>
       </main>
     </div>
   );
@@ -254,63 +460,68 @@ function ComingSoon({
 }) {
   return (
     <section style={styles.contentCard}>
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
+      <h2 style={styles.sectionTitle}>{title}</h2>
       <p style={styles.muted}>{description}</p>
-
       <div style={styles.statusBox}>
         {inactive
           ? "Task System Currently Inactive"
-          : "Module Structure Ready - Integration Pending"}
+          : "Module Integration Pending"}
       </div>
     </section>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div style={styles.infoRow}>
-      <span style={styles.muted}>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
   layout: {
     minHeight: "100vh",
-    display: "flex",
-    background: "#f3f6fb",
-    color: "#172033",
+    background: "#090a0e",
+    color: "#f4f4f5",
     fontFamily: "Arial, sans-serif",
   },
-  sidebar: {
-    width: 260,
-    minWidth: 260,
-    background: "#14233d",
+  loading: {
+    minHeight: "100vh",
+    display: "grid",
+    placeItems: "center",
+    background: "#090a0e",
     color: "white",
+  },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.65)",
+    zIndex: 20,
+  },
+  sidebar: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    zIndex: 30,
+    width: 280,
+    maxWidth: "85vw",
+    background: "linear-gradient(160deg, #17191f, #090a0e)",
+    borderRight: "1px solid #41434b",
+    boxShadow: "8px 0 35px rgba(0,0,0,0.45)",
     padding: 20,
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    minHeight: "100vh",
-    boxSizing: "border-box",
-  },
-  sidebarOpen: {
-    display: "flex",
+    overflowY: "auto",
+    transition: "transform 0.25s ease",
   },
   brand: {
     padding: "12px 5px 22px",
-    borderBottom: "1px solid #34435a",
+    borderBottom: "1px solid #393b43",
+  },
+  brandTitle: {
+    margin: 0,
+    letterSpacing: 2,
+    color: "#ffffff",
   },
   brandSubtitle: {
     fontSize: 9,
-    letterSpacing: 1.2,
-    color: "#aab9d0",
+    letterSpacing: 1,
+    color: "#a5a7b0",
     marginBottom: 0,
   },
   userBox: {
@@ -318,26 +529,39 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 12,
     padding: "22px 5px",
-    borderBottom: "1px solid #34435a",
+    borderBottom: "1px solid #393b43",
   },
-  avatar: {
-    width: 42,
-    height: 42,
+  sidebarAvatar: {
+    width: 43,
+    height: 43,
     borderRadius: "50%",
-    background: "#365b9d",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    objectFit: "cover",
+    border: "2px solid #aeb2bd",
+  },
+  sidebarAvatarPlaceholder: {
+    width: 43,
+    height: 43,
+    flexShrink: 0,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #777b87, #292b33)",
+    display: "grid",
+    placeItems: "center",
     fontSize: 19,
     fontWeight: "bold",
   },
+  userName: {
+    display: "block",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   userRole: {
-    color: "#aab9d0",
+    color: "#a5a7b0",
     fontSize: 12,
     margin: "5px 0 0",
   },
   menuHeading: {
-    color: "#91a2bd",
+    color: "#9295a0",
     fontSize: 11,
     letterSpacing: 1.5,
     marginTop: 25,
@@ -346,59 +570,88 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 7,
-    flex: 1,
     marginTop: 10,
+    flex: 1,
   },
   menuButton: {
     width: "100%",
     padding: "13px 12px",
-    border: "none",
+    border: "1px solid transparent",
     borderRadius: 8,
     background: "transparent",
-    color: "#d4deec",
+    color: "#d0d1d6",
     textAlign: "left",
     fontSize: 14,
     cursor: "pointer",
   },
   activeMenuButton: {
-    background: "#294c80",
+    background: "linear-gradient(110deg, #343740, #202229)",
+    border: "1px solid #777b87",
     color: "white",
     fontWeight: "bold",
   },
   logoutButton: {
     padding: 12,
-    border: "none",
+    border: "1px solid #5b3338",
     borderRadius: 8,
-    background: "#d94850",
-    color: "white",
+    background: "#351b20",
+    color: "#ffb9bf",
     fontWeight: "bold",
     cursor: "pointer",
     marginTop: 20,
   },
   main: {
-    flex: 1,
-    minWidth: 0,
+    minHeight: "100vh",
+    width: "100%",
   },
   topbar: {
-    background: "white",
-    padding: "18px 25px",
+    minHeight: 72,
+    boxSizing: "border-box",
+    background: "#15161b",
+    borderBottom: "1px solid #353740",
+    padding: "12px 22px",
     display: "flex",
     alignItems: "center",
     gap: 15,
-    borderBottom: "1px solid #e5eaf1",
   },
   hamburger: {
-    border: "1px solid #dce3ed",
-    background: "white",
-    borderRadius: 7,
-    padding: "7px 12px",
-    fontSize: 20,
+    width: 43,
+    height: 40,
+    border: "1px solid #555965",
+    background: "#24262d",
+    color: "white",
+    borderRadius: 8,
+    fontSize: 22,
     cursor: "pointer",
   },
+  topbarTitle: {
+    letterSpacing: 1.5,
+  },
   topbarSubtitle: {
-    color: "#718096",
+    color: "#a5a7b0",
     fontSize: 12,
     margin: "4px 0 0",
+  },
+  topbarUser: {
+    marginLeft: "auto",
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    fontSize: 13,
+  },
+  topbarAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: "50%",
+    objectFit: "cover",
+  },
+  topbarAvatarPlaceholder: {
+    width: 34,
+    height: 34,
+    borderRadius: "50%",
+    background: "#555965",
+    display: "grid",
+    placeItems: "center",
   },
   pageContent: {
     padding: 22,
@@ -406,30 +659,107 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 auto",
   },
   contentCard: {
-    background: "white",
+    background: "linear-gradient(145deg, #1b1d24, #111217)",
     padding: 25,
     borderRadius: 14,
-    border: "1px solid #e5eaf1",
+    border: "1px solid #41434b",
+    boxShadow: "0 8px 25px rgba(0,0,0,0.2)",
+  },
+  sectionTitle: {
+    marginTop: 0,
+    color: "#ffffff",
   },
   muted: {
-    color: "#718096",
+    color: "#a5a7b0",
     fontSize: 14,
+    lineHeight: 1.6,
   },
   statusBox: {
     marginTop: 25,
     padding: 18,
-    background: "#f1f5f9",
+    background: "#252730",
+    border: "1px solid #454853",
     borderRadius: 9,
-    color: "#52627a",
+    color: "#d1d3da",
+    fontSize: 14,
+  },
+  profilePictureArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: 20,
+    flexWrap: "wrap",
+    padding: "20px 0",
+    marginBottom: 15,
+    borderBottom: "1px solid #41434b",
+  },
+  profilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "3px solid #858995",
+  },
+  profilePicturePlaceholder: {
+    width: 100,
+    height: 100,
+    flexShrink: 0,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #777b87, #292b33)",
+    display: "grid",
+    placeItems: "center",
+    fontSize: 38,
+    fontWeight: "bold",
+  },
+  uploadButton: {
+    display: "inline-block",
+    padding: "11px 17px",
+    background: "#343740",
+    border: "1px solid #777b87",
+    borderRadius: 8,
+    color: "white",
+    cursor: "pointer",
+    fontSize: 13,
+  },
+  fieldLabel: {
+    display: "block",
+    marginTop: 17,
+    marginBottom: 8,
+    color: "#d7d8de",
+    fontSize: 13,
+  },
+  input: {
+    width: "100%",
+    maxWidth: 500,
+    boxSizing: "border-box",
+    padding: 13,
+    background: "#101116",
+    border: "1px solid #4a4d57",
+    borderRadius: 8,
+    color: "white",
+    outline: "none",
     fontSize: 14,
   },
   infoRow: {
     display: "flex",
     justifyContent: "space-between",
-    gap: 15,
-    padding: "15px 0",
-    borderBottom: "1px solid #edf0f4",
-    fontSize: 14,
+    maxWidth: 500,
+    padding: "17px 0",
+    marginTop: 10,
+    borderBottom: "1px solid #41434b",
+  },
+  saveButton: {
+    marginTop: 20,
+    padding: "12px 22px",
+    border: "1px solid #888d99",
+    borderRadius: 8,
+    background: "linear-gradient(110deg, #555965, #292b33)",
+    color: "white",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  message: {
+    color: "#d5d7df",
+    fontSize: 13,
+    marginTop: 15,
   },
 };
-
