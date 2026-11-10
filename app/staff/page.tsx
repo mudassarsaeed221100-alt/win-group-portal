@@ -978,17 +978,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
 
-  sidebarHelp: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    marginBottom: 15,
-    border: "1px solid #2c3e5c",
-    borderRadius: 9,
-    background: "#142139",
-  },
-
   logoutButton: {
     width: "100%",
     padding: 12,
