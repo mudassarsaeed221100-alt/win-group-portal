@@ -392,13 +392,13 @@ export default function SubmitWork({ selectedTask, onBackToTasks }: Props) {
                       {sub.task_title || "Task"}
                     </strong>
                     <span
-                      style={{
+                     style={{
                         display: badge.display,
                         padding: badge.padding,
                         borderRadius: badge.borderRadius,
                         fontSize: badge.fontSize,
                         fontWeight: badge.fontWeight,
-                        background: badge.bg,
+                        background: badge.background,
                         color: badge.color,
                         border: badge.border,
                       }}
