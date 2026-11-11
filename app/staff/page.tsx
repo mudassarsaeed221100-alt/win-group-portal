@@ -213,28 +213,49 @@ export default function StaffDashboard() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+      
         {/* ── Welcome Banner ── */}
         <div style={{
           background: "linear-gradient(135deg, #0c1628 0%, #111d35 50%, #0f1a2e 100%)",
           borderRadius: 12, border: "1px solid #1a2844", overflow: "hidden",
-          backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 50px, rgba(255,255,255,0.01) 50px, rgba(255,255,255,0.01) 51px)",
+          position: "relative", minHeight: 140,
         }}>
-          <div style={{ padding: "24px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+          {/* Diagonal Lines Pattern */}
+          <div style={{
+            position: "absolute", inset: 0,
+            backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 50px, rgba(255,255,255,0.02) 50px, rgba(255,255,255,0.02) 51px)",
+          }} />
+
+          {/* Wolf Logo — Big Background Image (Right Side) */}
+          <div style={{
+            position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)",
+            display: "flex", alignItems: "center", gap: 12, opacity: 0.9,
+          }}>
+            <img
+              src={WOLF_LOGO}
+              alt="WIN GROUP"
+              style={{
+                width: 90,
+                height: 90,
+                objectFit: "contain",
+                filter: "drop-shadow(0 0 20px rgba(59,130,246,0.3))",
+              }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
             <div>
-              <p style={{ color: "#8190aa", fontSize: 13, margin: 0 }}>Welcome Back,</p>
-              <h2 style={{ fontSize: 24, margin: "4px 0 0", color: "#60a5fa", fontWeight: 700 }}>{fullName}!</h2>
-              <p style={{ color: "#5a6a84", fontSize: 12, margin: "6px 0 0" }}>Together we grow stronger — WIN GROUP</p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src={WOLF_LOGO} alt="WIN GROUP" style={{ width: 48, height: 48, objectFit: "contain" }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <div>
-                <strong style={{ color: "#fff", fontSize: 14, letterSpacing: 1 }}>WIN GROUP</strong>
-                <p style={{ color: "#5a6a84", fontSize: 7, margin: "2px 0 0", letterSpacing: 0.5 }}>WOLF INDEPENDENT NATIONAL GROUP</p>
-              </div>
+              <strong style={{ color: "#fff", fontSize: 16, letterSpacing: 1.5, display: "block" }}>WIN GROUP</strong>
+              <p style={{ color: "#4a5a74", fontSize: 8, margin: "3px 0 0", letterSpacing: 0.6 }}>WOLF INDEPENDENT NATIONAL GROUP</p>
             </div>
           </div>
+
+          {/* Welcome Text (Left Side) */}
+          <div style={{ position: "relative", padding: "28px 24px", zIndex: 1 }}>
+            <p style={{ color: "#8190aa", fontSize: 14, margin: 0 }}>Welcome Back,</p>
+            <h2 style={{ fontSize: 26, margin: "6px 0 0", color: "#60a5fa", fontWeight: 700 }}>{fullName}!</h2>
+            <p style={{ color: "#5a6a84", fontSize: 12, margin: "8px 0 0" }}>Together we grow stronger — WIN GROUP</p>
+          </div>
         </div>
+
 
         {/* ── 4 Stats Cards ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
