@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { supabase } from "../../lib/supabase";
 
 export type WorkTask = {
@@ -22,10 +23,31 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  async function loadTasks() {
+    setLoading(true);
+    setError("");
+
+    const { data, error } = await supabase
+      .from("work_tasks")
+      .select("id, title, description, reward_amount, deadline, created_at")
+      .eq("status", "active")
+      .contains("target_roles", ["staff"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setError(error.message);
+      setTasks([]);
+    } else {
+      setTasks((data || []) as WorkTask[]);
+    }
+
+    setLoading(false);
+  }
+
   useEffect(() => {
     let isMounted = true;
 
-    async function loadTasks() {
+    async function fetchTasks() {
       setLoading(true);
       setError("");
 
@@ -33,6 +55,7 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
         .from("work_tasks")
         .select("id, title, description, reward_amount, deadline, created_at")
         .eq("status", "active")
+        .contains("target_roles", ["staff"])
         .order("created_at", { ascending: false });
 
       if (!isMounted) return;
@@ -47,7 +70,7 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
       setLoading(false);
     }
 
-    loadTasks();
+    fetchTasks();
 
     return () => {
       isMounted = false;
@@ -63,13 +86,15 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
   }
 
   return (
-    <div style={{
-      background: "#17191d",
-      border: "1px solid #30343b",
-      borderRadius: "14px",
-      padding: "28px",
-      color: "#f1f3f5",
-    }}>
+    <div
+      style={{
+        background: "#17191d",
+        border: "1px solid #30343b",
+        borderRadius: "14px",
+        padding: "28px",
+        color: "#f1f3f5",
+      }}
+    >
       <div style={{ fontSize: "13px", color: "#aeb4bd" }}>
         STAFF WORKSPACE
       </div>
@@ -84,17 +109,20 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
       </p>
 
       {loading ? (
-        <div style={messageStyle}>
-          Tasks load ho rahe hain...
-        </div>
+        <div style={messageStyle}>Tasks load ho rahe hain...</div>
       ) : error ? (
-        <div style={{
-          ...messageStyle,
-          background: "#2b2022",
-          border: "1px solid #63383d",
-          color: "#ffb4b4",
-        }}>
+        <div
+          style={{
+            ...messageStyle,
+            background: "#2b2022",
+            border: "1px solid #63383d",
+            color: "#ffb4b4",
+          }}
+        >
           Tasks load nahi ho sake: {error}
+          <button type="button" onClick={loadTasks} style={retryButtonStyle}>
+            Retry
+          </button>
         </div>
       ) : tasks.length === 0 ? (
         <div style={messageStyle}>
@@ -102,78 +130,122 @@ export default function AvailableWorkTasks({ onSelectTask }: Props) {
           <p style={{ color: "#aeb4bd", fontSize: "14px" }}>
             Filhal aapke liye koi active task available nahi hai.
           </p>
+          <button type="button" onClick={loadTasks} style={retryButtonStyle}>
+            Refresh Tasks
+          </button>
         </div>
       ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: "16px",
-          marginTop: "24px",
-        }}>
-          {tasks.map((task) => (
-            <div key={task.id} style={{
-              padding: "20px",
-              borderRadius: "10px",
-              background: "#22262d",
-              border: "1px solid #3a414b",
-            }}>
-              <h3 style={{ fontSize: "17px", margin: "0 0 10px" }}>
-                {task.title}
-              </h3>
+        <>
+          <div style={{ marginTop: "20px", color: "#aeb4bd", fontSize: "13px" }}>
+            {tasks.length} active task(s) available
+            <button type="button" onClick={loadTasks} style={refreshButtonStyle}>
+              Refresh
+            </button>
+          </div>
 
-              <p style={{
-                color: "#aeb4bd",
-                fontSize: "14px",
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-              }}>
-                {task.description || "No description provided."}
-              </p>
-
-              <div style={{ marginTop: "16px", fontSize: "14px" }}>
-                Reward: Rs. {Number(task.reward_amount).toLocaleString("en-PK")}
-              </div>
-
-              {task.deadline && (
-                <div style={{
-                  marginTop: "8px",
-                  color: "#aeb4bd",
-                  fontSize: "13px",
-                }}>
-                  Deadline: {formatDate(task.deadline)}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => onSelectTask(task)}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "16px",
+              marginTop: "16px",
+            }}
+          >
+            {tasks.map((task) => (
+              <div
+                key={task.id}
                 style={{
-                  width: "100%",
-                  marginTop: "18px",
-                  padding: "12px",
-                  border: "none",
-                  borderRadius: "8px",
-                  background: "#e5e7eb",
-                  color: "#17191d",
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  padding: "20px",
+                  borderRadius: "10px",
+                  background: "#22262d",
+                  border: "1px solid #3a414b",
                 }}
               >
-                Select Task
-              </button>
-            </div>
-          ))}
-        </div>
+                <h3 style={{ fontSize: "17px", margin: "0 0 10px" }}>
+                  {task.title}
+                </h3>
+
+                <p
+                  style={{
+                    color: "#aeb4bd",
+                    fontSize: "14px",
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {task.description || "No description provided."}
+                </p>
+
+                <div style={{ marginTop: "16px", fontSize: "14px" }}>
+                  Reward: Rs.{" "}
+                  {Number(task.reward_amount).toLocaleString("en-PK")}
+                </div>
+
+                {task.deadline && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      color: "#aeb4bd",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Deadline: {formatDate(task.deadline)}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => onSelectTask(task)}
+                  style={{
+                    width: "100%",
+                    marginTop: "18px",
+                    padding: "12px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#e5e7eb",
+                    color: "#17191d",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Select Task
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-const messageStyle: React.CSSProperties = {
+const messageStyle: CSSProperties = {
   marginTop: "24px",
   padding: "20px",
   background: "#22262d",
   border: "1px solid #3a414b",
   borderRadius: "10px",
   color: "#f1f3f5",
+};
+
+const retryButtonStyle: CSSProperties = {
+  display: "block",
+  marginTop: "14px",
+  padding: "10px 16px",
+  border: "none",
+  borderRadius: "7px",
+  background: "#e5e7eb",
+  color: "#17191d",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const refreshButtonStyle: CSSProperties = {
+  marginLeft: "12px",
+  padding: "7px 12px",
+  border: "1px solid #59616d",
+  borderRadius: "6px",
+  background: "#22262d",
+  color: "#f1f3f5",
+  cursor: "pointer",
 };
