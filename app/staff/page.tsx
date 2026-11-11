@@ -68,13 +68,8 @@ const menuItems: { id: MenuKey; label: string; icon: string }[] = [
   { id: "support", label: "Support", icon: "🎧" },
 ];
 
-/* ─────────────────────────────────────────────
-   🐺 WOLF LOGO — Apni image ka path yahan rakhein
-   ───────────────────────────────────────────── */
-
+/* 🐺 Wolf Logo URL */
 const WOLF_LOGO = "https://eubrfvhinrubkmgwmdaf.supabase.co/storage/v1/object/public/avatars/download.jpeg";
-// ☝️ Mudassar: Apni wolf image ko public folder mein "wolf-logo.png" naam se rakhein
-// Ya koi bhi URL/path yahan daal dein
 
 /* ───────── Avatar ───────── */
 
@@ -213,51 +208,86 @@ export default function StaffDashboard() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-      
-        {/* ── Welcome Banner ── */}
+        {/* ══ Welcome Banner with Wolf Background ══ */}
         <div style={{
-          background: "linear-gradient(135deg, #0c1628 0%, #111d35 50%, #0f1a2e 100%)",
-          borderRadius: 12, border: "1px solid #1a2844", overflow: "hidden",
-          position: "relative", minHeight: 140,
+          borderRadius: 12,
+          border: "1px solid #1a2844",
+          overflow: "hidden",
+          position: "relative",
+          minHeight: 150,
+          background: "#0c1628",
         }}>
-          {/* Diagonal Lines Pattern */}
+          {/* Background Wolf Image — Full Right Side */}
           <div style={{
-            position: "absolute", inset: 0,
-            backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 50px, rgba(255,255,255,0.02) 50px, rgba(255,255,255,0.02) 51px)",
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "45%",
+            backgroundImage: `url(${WOLF_LOGO})`,
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center right",
+            opacity: 0.15,
           }} />
 
-          {/* Wolf Logo — Big Background Image (Right Side) */}
+          {/* Diagonal Lines Overlay */}
           <div style={{
-            position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)",
-            display: "flex", alignItems: "center", gap: 12, opacity: 0.9,
-          }}>
-            <img
-              src={WOLF_LOGO}
-              alt="WIN GROUP"
-              style={{
-                width: 90,
-                height: 90,
-                objectFit: "contain",
-                filter: "drop-shadow(0 0 20px rgba(59,130,246,0.3))",
-              }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-            <div>
-              <strong style={{ color: "#fff", fontSize: 16, letterSpacing: 1.5, display: "block" }}>WIN GROUP</strong>
-              <p style={{ color: "#4a5a74", fontSize: 8, margin: "3px 0 0", letterSpacing: 0.6 }}>WOLF INDEPENDENT NATIONAL GROUP</p>
-            </div>
-          </div>
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px)",
+          }} />
 
-          {/* Welcome Text (Left Side) */}
-          <div style={{ position: "relative", padding: "28px 24px", zIndex: 1 }}>
-            <p style={{ color: "#8190aa", fontSize: 14, margin: 0 }}>Welcome Back,</p>
-            <h2 style={{ fontSize: 26, margin: "6px 0 0", color: "#60a5fa", fontWeight: 700 }}>{fullName}!</h2>
-            <p style={{ color: "#5a6a84", fontSize: 12, margin: "8px 0 0" }}>Together we grow stronger — WIN GROUP</p>
+          {/* Gradient Overlay */}
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(90deg, #0c1628 55%, transparent 100%)",
+          }} />
+
+          {/* Content */}
+          <div style={{
+            position: "relative",
+            zIndex: 2,
+            padding: "28px 24px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
+          }}>
+            {/* Left — Welcome Text */}
+            <div>
+              <p style={{ color: "#8190aa", fontSize: 14, margin: 0 }}>Welcome Back,</p>
+              <h2 style={{ fontSize: 26, margin: "6px 0 0", color: "#60a5fa", fontWeight: 700 }}>{fullName}!</h2>
+              <p style={{ color: "#5a6a84", fontSize: 12, margin: "8px 0 0" }}>Together we grow stronger — WIN GROUP</p>
+            </div>
+
+            {/* Right — Wolf Logo + Text (Visible) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img
+                src={WOLF_LOGO}
+                alt="WIN GROUP"
+                style={{
+                  width: 80,
+                  height: 80,
+                  objectFit: "contain",
+                  borderRadius: 12,
+                  border: "1px solid #1a2844",
+                  background: "#0a1020",
+                  padding: 6,
+                }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <div>
+                <strong style={{ color: "#fff", fontSize: 15, letterSpacing: 1.5, display: "block" }}>WIN GROUP</strong>
+                <p style={{ color: "#4a5a74", fontSize: 8, margin: "3px 0 0", letterSpacing: 0.6 }}>WOLF INDEPENDENT NATIONAL GROUP</p>
+              </div>
+            </div>
           </div>
         </div>
 
-
-        {/* ── 4 Stats Cards ── */}
+        {/* ══ 4 Stats Cards ══ */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
           {[
             { label: "Available Tasks", value: String(stats.availableTasks), icon: "📋", bg: "#0f2240", menu: "tasks" as MenuKey },
@@ -278,7 +308,7 @@ export default function StaffDashboard() {
           ))}
         </div>
 
-        {/* ── Activity Chart + Quick Access ── */}
+        {/* ══ Activity Chart + Quick Access ══ */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 12 }}>
 
           {/* Chart */}
@@ -292,26 +322,22 @@ export default function StaffDashboard() {
             </div>
 
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 130 }}>
-              {/* Y axis */}
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", paddingBottom: 18 }}>
                 {Array.from({ length: chartMax + 1 }, (_, i) => chartMax - i).map((v) => (
                   <span key={v} style={{ fontSize: 9, color: "#3a4a60", width: 12, textAlign: "right" }}>{v}</span>
                 ))}
               </div>
 
-              {/* Bars */}
               <div style={{ flex: 1, display: "flex", justifyContent: "space-around", alignItems: "flex-end", height: "100%", borderBottom: "1px solid #1a2844", position: "relative" }}>
                 {stats.weeklyActivity.map((val, i) => {
                   const pct = chartMax > 0 ? (val / chartMax) * 100 : 0;
                   return (
                     <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end", position: "relative" }}>
-                      {/* Dot */}
                       <div style={{
                         width: 8, height: 8, borderRadius: "50%", background: "#3b82f6",
                         border: "2px solid #0d1526", marginBottom: -4, zIndex: 2,
                         position: "absolute", bottom: `${pct}%`,
                       }} />
-                      {/* Bar */}
                       <div style={{
                         width: 24, borderRadius: "3px 3px 0 0", minHeight: 2,
                         background: "linear-gradient(180deg, #3b82f6 0%, #1e3a6e 100%)",
@@ -352,7 +378,7 @@ export default function StaffDashboard() {
           </div>
         </div>
 
-        {/* ── Stay Productive ── */}
+        {/* ══ Stay Productive ══ */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12,
           padding: "16px 20px", background: "#0d1526", border: "1px solid #1e3a6e", borderRadius: 10,
@@ -391,7 +417,7 @@ export default function StaffDashboard() {
 
   /* ───────── RENDER ───────── */
 
-  const SW = 240; // Sidebar width — tight
+  const SW = 240;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#080d1a", color: "#e8ecf4", fontFamily: "Arial, sans-serif" }}>
@@ -416,10 +442,7 @@ export default function StaffDashboard() {
           {/* Brand + Wolf Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 14, borderBottom: "1px solid #151f35" }}>
             <img src={WOLF_LOGO} alt="WIN" style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 8 }}
-              onError={(e) => {
-                const el = e.target as HTMLImageElement;
-                el.style.display = "none";
-              }} />
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             <div>
               <strong style={{ color: "#fff", fontSize: 15, letterSpacing: 1.2 }}>WIN GROUP</strong>
               <p style={{ color: "#4a5a74", fontSize: 7, margin: "2px 0 0", letterSpacing: 0.5 }}>WOLF INDEPENDENT NATIONAL GROUP</p>
@@ -484,7 +507,6 @@ export default function StaffDashboard() {
           justifyContent: "space-between", gap: 10, flexWrap: "wrap",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Hamburger */}
             <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
               width: 34, height: 32, border: "1px solid #1a2844",
               background: "#0d1526", color: "#fff", borderRadius: 6,
