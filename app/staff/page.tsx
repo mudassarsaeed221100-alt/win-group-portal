@@ -71,7 +71,7 @@ const menuItems: { id: MenuKey; label: string; icon: string }[] = [
 /* ─────────────────────────────────────────────
    🐺 WOLF LOGO — Apni image ka path yahan rakhein
    ───────────────────────────────────────────── */
-const WOLF_LOGO = "/wolf-logo.png";
+const WOLF_LOGO = "https://apki-supabase-url.supabase.co/storage/v1/object/public/avatars/wolf-logo.png";
 // ☝️ Mudassar: Apni wolf image ko public folder mein "wolf-logo.png" naam se rakhein
 // Ya koi bhi URL/path yahan daal dein
 
