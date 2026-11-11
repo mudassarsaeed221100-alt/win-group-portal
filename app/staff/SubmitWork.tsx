@@ -272,26 +272,25 @@ export default function SubmitWork({ selectedTask, onBackToTasks }: Props) {
   }
 
   /* ── FIX #3: View Proof using Signed URL ── */
-  async function viewProof(proofUrl: string) {
-    setPreviewLoading(true);
-    setPreviewUrl(null);
+   async function viewProof(proofUrl: string) {
+    try {
+      const { data, error } = await supabase.storage
+        .from("work-proofs")
+        .createSignedUrl(proofUrl, 600);
 
-    const { data, error } = await supabase.storage
-      .from("work-proofs")
-      .createSignedUrl(proofUrl, 300); /* 5 minutes */
+      if (error || !data?.signedUrl) {
+        setMessageType("error");
+        setMessage("Proof load nahi ho saka: " + (error?.message || "URL nahi mila"));
+        return;
+      }
 
-    if (error || !data?.signedUrl) {
+      window.open(data.signedUrl, "_blank");
+    } catch (err) {
       setMessageType("error");
-      setMessage("Proof load nahi ho saka. Storage access check karein.");
-      setPreviewLoading(false);
-      return;
+      setMessage("Proof open karne mein error aaya.");
     }
-
-    const isPdf = proofUrl.toLowerCase().endsWith(".pdf");
-    setPreviewType(isPdf ? "pdf" : "image");
-    setPreviewUrl(data.signedUrl);
-    setPreviewLoading(false);
   }
+
 
   function closePreview() {
     setPreviewUrl(null);
