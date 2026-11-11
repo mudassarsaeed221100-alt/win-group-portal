@@ -12,7 +12,7 @@ type ProfileData = {
   role: string;
   avatar_url: string | null;
   team_code: string | null;
-  created_at? string | null;
+  created_at?: string | null;
 };
 
 type SuperAdminProfile = {
