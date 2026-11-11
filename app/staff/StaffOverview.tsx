@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
+/* ───────── Types ───────── */
+
 type Profile = {
   first_name: string | null;
   surname: string | null;
@@ -25,17 +27,23 @@ type StaffOverviewProps = {
 
 type DashboardStats = {
   availableTasks: number | null;
-  submissions: number | null;
-  earnings: number | null;
+  totalSubmissions: number | null;
+  totalEarnings: number | null;
+  availableBalance: number | null;
+  reservedAmount: number | null;
   notifications: number | null;
 };
 
 const initialStats: DashboardStats = {
   availableTasks: null,
-  submissions: null,
-  earnings: null,
+  totalSubmissions: null,
+  totalEarnings: null,
+  availableBalance: null,
+  reservedAmount: null,
   notifications: null,
 };
+
+/* ───────── Component ───────── */
 
 export default function StaffOverview({
   profile,
@@ -43,6 +51,7 @@ export default function StaffOverview({
 }: StaffOverviewProps) {
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const fullName =
     `${profile.first_name || ""} ${profile.surname || ""}`.trim() ||
@@ -56,58 +65,111 @@ export default function StaffOverview({
 
     async function loadDashboardData() {
       setLoading(true);
+      setError("");
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        if (mounted) setLoading(false);
+      if (userError || !user) {
+        if (mounted) {
+          setError("User session nahi mili. Dobara login karein.");
+          setLoading(false);
+        }
         return;
       }
 
-      const [tasksResult, submissionsResult, earningsResult, notificationsResult] =
-        await Promise.all([
-          supabase
-            .from("work_tasks")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "active"),
+      const [
+        tasksResult,
+        submissionsResult,
+        earningsResult,
+        withdrawalsResult,
+        notificationsResult,
+      ] = await Promise.all([
+        /* FIX #1: Available tasks — filter by status AND target_roles contains 'staff' */
+        supabase
+          .from("work_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active")
+          .contains("target_roles", ["staff"]),
 
-          supabase
-            .from("work_submissions")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id),
+        /* Total submissions by this staff */
+        supabase
+          .from("work_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id),
 
-          supabase
-            .from("earnings_ledger")
-            .select("amount")
-            .eq("user_id", user.id),
+        /* FIX #3: Earnings — fetch amount AND withdrawn_amount for balance calc */
+        supabase
+          .from("earnings_ledger")
+          .select("amount, payment_status, withdrawn_amount")
+          .eq("user_id", user.id),
 
-          supabase
-            .from("notifications")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "active"),
-        ]);
+        /* FIX #4: Withdrawal requests — fetch pending/approved for reserved amount */
+        supabase
+          .from("withdrawal_requests")
+          .select("amount, status")
+          .eq("user_id", user.id)
+          .in("status", ["pending", "approved"]),
 
-      const earningsTotal = earningsResult.error
-        ? null
-        : (earningsResult.data || []).reduce(
-            (total, item) => total + Number(item.amount || 0),
-            0
-          );
+        /* FIX #2: Notifications — filter by status AND recipient_roles contains 'staff' */
+        supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active")
+          .contains("recipient_roles", ["staff"]),
+      ]);
+
+      /* Check for critical errors */
+      const errors: string[] = [];
+      if (tasksResult.error) errors.push("Tasks: " + tasksResult.error.message);
+      if (earningsResult.error) errors.push("Earnings: " + earningsResult.error.message);
+      if (withdrawalsResult.error) errors.push("Withdrawals: " + withdrawalsResult.error.message);
+      if (notificationsResult.error) errors.push("Notifications: " + notificationsResult.error.message);
+
+      if (errors.length > 0 && mounted) {
+        setError("Kuch data load nahi ho saka: " + errors.join(" | "));
+      }
+
+      /* FIX #5: Calculate earnings breakdown */
+      const earningsData = earningsResult.data || [];
+
+      const totalEarnings = earningsData.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      );
+
+      /* Unpaid balance = earnings that are not fully paid/withdrawn */
+      const unpaidBalance = earningsData
+        .filter((item) => item.payment_status !== "paid")
+        .reduce(
+          (sum, item) =>
+            sum +
+            Math.max(0, Number(item.amount || 0) - Number(item.withdrawn_amount || 0)),
+          0
+        );
+
+      /* Reserved = sum of pending + approved withdrawal requests */
+      const reservedAmount = (withdrawalsResult.data || []).reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      );
+
+      /* Available = unpaid balance minus reserved withdrawals */
+      const availableBalance = Math.max(0, unpaidBalance - reservedAmount);
 
       if (mounted) {
         setStats({
           availableTasks: tasksResult.error ? null : tasksResult.count ?? 0,
-          submissions: submissionsResult.error
+          totalSubmissions: submissionsResult.error
             ? null
             : submissionsResult.count ?? 0,
-          earnings: earningsTotal,
-          notifications: notificationsResult.error
-            ? null
-            : notificationsResult.count ?? 0,
+          totalEarnings: earningsResult.error ? null : totalEarnings,
+          availableBalance: earningsResult.error ? null : availableBalance,
+          reservedAmount: withdrawalsResult.error ? null : reservedAmount,
+          notifications: notificationsResult.error ? null : notificationsResult.count ?? 0,
         });
-
         setLoading(false);
       }
     }
@@ -119,27 +181,33 @@ export default function StaffOverview({
     };
   }, []);
 
+  /* ───────── Display Helpers ───────── */
+
   const showNumber = (value: number | null) => {
-    if (loading) return "Loading...";
-    if (value === null) return "Unavailable";
+    if (loading) return "...";
+    if (value === null) return "—";
     return value.toLocaleString("en-PK");
   };
 
   const showMoney = (value: number | null) => {
-    if (loading) return "Loading...";
-    if (value === null) return "Unavailable";
+    if (loading) return "...";
+    if (value === null) return "—";
     return `Rs. ${value.toLocaleString("en-PK")}`;
   };
 
+  /* ───────── Render ───────── */
+
   return (
     <main style={styles.container}>
+      {/* ── Welcome Card ── */}
       <section style={styles.welcomeCard}>
         <div style={styles.welcomeContent}>
           <p style={styles.label}>WOLF INDEPENDENT NATIONAL GROUP</p>
           <h1 style={styles.heading}>Staff Dashboard</h1>
           <p style={styles.welcome}>Welcome, {fullName}</p>
           <p style={styles.welcomeNote}>
-            WIN GROUP Staff Portal mein khush aamdeed.
+            WIN GROUP Staff Portal mein khush aamdeed. Yahan se aap apne tasks,
+            earnings aur team ki information dekh sakte hain.
           </p>
         </div>
 
@@ -148,6 +216,16 @@ export default function StaffOverview({
             src={profile.avatar_url}
             alt="Staff Profile"
             style={styles.avatar}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                const fallback = document.createElement("div");
+                Object.assign(fallback.style, styles.avatarPlaceholder);
+                fallback.textContent = fullName.charAt(0).toUpperCase();
+                parent.replaceChild(fallback, e.target as HTMLImageElement);
+              }
+            }}
           />
         ) : (
           <div style={styles.avatarPlaceholder}>
@@ -156,19 +234,31 @@ export default function StaffOverview({
         )}
       </section>
 
+      {/* ── Error Message ── */}
+      {error && <div style={styles.errorBox}>{error}</div>}
+
+      {/* ── Stats Cards ── */}
       <section style={styles.grid}>
         <div style={styles.card}>
-          <p style={styles.cardLabel}>Account Status</p>
-          <h2 style={styles.cardValue}>Registered</h2>
-          <p style={styles.cardNote}>Staff profile available</p>
+          <p style={styles.cardLabel}>Total Earnings</p>
+          <h2 style={styles.cardValue}>{showMoney(stats.totalEarnings)}</h2>
+          <p style={styles.cardNote}>Lifetime approved earnings</p>
         </div>
 
         <div style={styles.card}>
-          <p style={styles.cardLabel}>Account Role</p>
-          <h2 style={styles.cardValue}>
-            {profile.role === "staff" ? "Staff" : profile.role}
+          <p style={styles.cardLabel}>Available Balance</p>
+          <h2 style={{ ...styles.cardValue, color: "#6ee7a0" }}>
+            {showMoney(stats.availableBalance)}
           </h2>
-          <p style={styles.cardNote}>Your account role</p>
+          <p style={styles.cardNote}>Withdrawable amount</p>
+        </div>
+
+        <div style={styles.card}>
+          <p style={styles.cardLabel}>Reserved Amount</p>
+          <h2 style={{ ...styles.cardValue, color: "#f5d28a" }}>
+            {showMoney(stats.reservedAmount)}
+          </h2>
+          <p style={styles.cardNote}>Pending/Approved withdrawals</p>
         </div>
 
         <div style={styles.card}>
@@ -176,18 +266,27 @@ export default function StaffOverview({
           <h2 style={styles.cardValue}>
             {showNumber(stats.availableTasks)}
           </h2>
-          <p style={styles.cardNote}>Active tasks available to you</p>
+          <p style={styles.cardNote}>Active tasks for you</p>
         </div>
 
         <div style={styles.card}>
-          <p style={styles.cardLabel}>My Team Code</p>
-          <h2 style={styles.cardValueSmall}>
-            {profile.team_code || "Not available"}
+          <p style={styles.cardLabel}>My Submissions</p>
+          <h2 style={styles.cardValue}>
+            {showNumber(stats.totalSubmissions)}
           </h2>
-          <p style={styles.cardNote}>Your assigned team code</p>
+          <p style={styles.cardNote}>Total work submitted</p>
+        </div>
+
+        <div style={styles.card}>
+          <p style={styles.cardLabel}>Notifications</p>
+          <h2 style={styles.cardValue}>
+            {showNumber(stats.notifications)}
+          </h2>
+          <p style={styles.cardNote}>Active notifications</p>
         </div>
       </section>
 
+      {/* ── Team Information ── */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>My Team Information</h2>
         <p style={styles.description}>
@@ -195,7 +294,7 @@ export default function StaffOverview({
         </p>
 
         <div style={styles.info}>
-          <span>Super Admin Name</span>
+          <span>Super Admin</span>
           <strong>{superAdminName || "Not available"}</strong>
         </div>
 
@@ -208,8 +307,14 @@ export default function StaffOverview({
           <span>My Team Code</span>
           <strong>{profile.team_code || "Not available"}</strong>
         </div>
+
+        <div style={styles.info}>
+          <span>My Role</span>
+          <strong style={{ textTransform: "capitalize" }}>{profile.role}</strong>
+        </div>
       </section>
 
+      {/* ── My Account ── */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>My Account</h2>
         <p style={styles.description}>
@@ -228,36 +333,12 @@ export default function StaffOverview({
 
         <div style={styles.info}>
           <span>Account Role</span>
-          <strong>{profile.role}</strong>
+          <strong style={{ textTransform: "capitalize" }}>{profile.role}</strong>
         </div>
-      </section>
 
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Staff Workspace</h2>
-        <p style={styles.description}>
-          Aapke staff account ke actual records.
-        </p>
-
-        <div style={styles.workspaceGrid}>
-          <div style={styles.workspaceItem}>
-            <strong>Available Work Tasks</strong>
-            <span>{showNumber(stats.availableTasks)} active tasks</span>
-          </div>
-
-          <div style={styles.workspaceItem}>
-            <strong>My Submissions</strong>
-            <span>{showNumber(stats.submissions)} submitted records</span>
-          </div>
-
-          <div style={styles.workspaceItem}>
-            <strong>My Earnings</strong>
-            <span>{showMoney(stats.earnings)} total ledger amount</span>
-          </div>
-
-          <div style={styles.workspaceItem}>
-            <strong>Notifications</strong>
-            <span>{showNumber(stats.notifications)} active notifications</span>
-          </div>
+        <div style={styles.info}>
+          <span>Team Code</span>
+          <strong>{profile.team_code || "Not assigned"}</strong>
         </div>
       </section>
 
@@ -265,6 +346,8 @@ export default function StaffOverview({
     </main>
   );
 }
+
+/* ───────── Styles ───────── */
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -286,6 +369,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   welcomeContent: {
     minWidth: 0,
+    flex: 1,
   },
   label: {
     color: "#aeb2bd",
@@ -308,6 +392,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#a5a7b0",
     fontSize: 13,
     margin: "10px 0 0",
+    lineHeight: 1.5,
   },
   avatar: {
     width: 76,
@@ -333,6 +418,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 30,
     fontWeight: "bold",
   },
+  errorBox: {
+    background: "#3a2024",
+    border: "1px solid #754047",
+    color: "#ffb8bf",
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 16,
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
@@ -356,12 +451,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 23,
     margin: "15px 0 7px",
     overflowWrap: "anywhere",
-  },
-  cardValueSmall: {
-    color: "#ffffff",
-    fontSize: 17,
-    overflowWrap: "anywhere",
-    margin: "15px 0 7px",
   },
   cardNote: {
     color: "#858995",
@@ -397,24 +486,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#b9bbc3",
     fontSize: 13,
   },
-  workspaceGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-    gap: 12,
-    marginTop: 15,
-  },
-  workspaceItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    padding: 16,
-    background: "#202229",
-    border: "1px solid #41434b",
-    borderRadius: 9,
-    minWidth: 0,
-    fontSize: 13,
-    color: "#e5e5e8",
-  },
   footer: {
     textAlign: "center",
     color: "#777b87",
@@ -422,3 +493,4 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 25,
   },
 };
+
