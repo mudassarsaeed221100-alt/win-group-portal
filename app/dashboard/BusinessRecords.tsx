@@ -20,6 +20,8 @@ type BusinessRecord = {
   reference_number: string | null;
   department_id: string | null;
   status: "active" | "inactive";
+  created_at: string;
+  updated_at: string;
 };
 
 const today = () => {
@@ -40,6 +42,7 @@ const emptyForm = {
 
 export default function BusinessRecords() {
   const [records, setRecords] = useState<BusinessRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<BusinessRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +51,16 @@ export default function BusinessRecords() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // Filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  /* ── Load Data ── */
   useEffect(() => {
     loadData();
   }, []);
@@ -60,7 +73,7 @@ export default function BusinessRecords() {
       supabase
         .from("business_records")
         .select("*")
-        .order("created_at", { ascending: false }),
+        .order("record_date", { ascending: false }),
       supabase
         .from("departments")
         .select("id, name")
@@ -86,6 +99,51 @@ export default function BusinessRecords() {
     setLoading(false);
   }
 
+  /* ── Filter & Search ── */
+  useEffect(() => {
+    let filtered = records;
+
+    // Search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (record) =>
+          record.title.toLowerCase().includes(term) ||
+          record.category?.toLowerCase().includes(term) ||
+          record.reference_number?.toLowerCase().includes(term)
+      );
+    }
+
+    // Type filter
+    if (typeFilter !== "all") {
+      filtered = filtered.filter((record) => record.record_type === typeFilter);
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((record) => record.status === statusFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      filtered = filtered.filter((record) => record.record_date >= dateFrom);
+    }
+    if (dateTo) {
+      filtered = filtered.filter((record) => record.record_date <= dateTo);
+    }
+
+    setFilteredRecords(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter, statusFilter, dateFrom, dateTo, records]);
+
+  /* ── Pagination ── */
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  /* ── Form Handler ── */
   function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -95,6 +153,7 @@ export default function BusinessRecords() {
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
+  /* ── Submit Form ── */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -105,6 +164,12 @@ export default function BusinessRecords() {
 
     if (!Number.isFinite(amount) || amount < 0) {
       setError("Please enter a valid amount.");
+      setSaving(false);
+      return;
+    }
+
+    if (!form.title.trim()) {
+      setError("Record title is required.");
       setSaving(false);
       return;
     }
@@ -140,7 +205,9 @@ export default function BusinessRecords() {
     if (result.error) {
       setError(result.error.message);
     } else {
-      setMessage(editingId ? "Record updated successfully." : "Record added successfully.");
+      setMessage(
+        editingId ? "Record updated successfully." : "Record added successfully."
+      );
       setForm({ ...emptyForm, record_date: today() });
       setEditingId(null);
       await loadData();
@@ -149,6 +216,7 @@ export default function BusinessRecords() {
     setSaving(false);
   }
 
+  /* ── Edit Record ── */
   function handleEdit(record: BusinessRecord) {
     setForm({
       title: record.title,
@@ -167,12 +235,12 @@ export default function BusinessRecords() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  /* ── Toggle Status ── */
   async function toggleStatus(record: BusinessRecord) {
     setError("");
     setMessage("");
 
-    const newStatus =
-      record.status === "active" ? "inactive" : "active";
+    const newStatus = record.status === "active" ? "inactive" : "active";
 
     const { error } = await supabase
       .from("business_records")
@@ -190,6 +258,7 @@ export default function BusinessRecords() {
     }
   }
 
+  /* ── Delete Record ── */
   async function deleteRecord(id: string) {
     if (!window.confirm("Are you sure you want to delete this record?")) {
       return;
@@ -211,6 +280,7 @@ export default function BusinessRecords() {
     }
   }
 
+  /* ── Cancel Edit ── */
   function cancelEdit() {
     setEditingId(null);
     setForm({ ...emptyForm, record_date: today() });
@@ -218,193 +288,347 @@ export default function BusinessRecords() {
     setError("");
   }
 
-  const activeRecords = records.filter(
-    (record) => record.status === "active"
-  );
-
+  /* ── Calculate Stats ── */
+  const activeRecords = filteredRecords.filter((r) => r.status === "active");
   const totalIncome = activeRecords
-    .filter((record) => record.record_type === "income")
-    .reduce((total, record) => total + Number(record.amount), 0);
-
+    .filter((r) => r.record_type === "income")
+    .reduce((sum, r) => sum + Number(r.amount), 0);
   const totalExpense = activeRecords
-    .filter((record) => record.record_type === "expense")
-    .reduce((total, record) => total + Number(record.amount), 0);
+    .filter((r) => r.record_type === "expense")
+    .reduce((sum, r) => sum + Number(r.amount), 0);
+  const netBalance = totalIncome - totalExpense;
 
   const formatAmount = (amount: number) =>
     `Rs. ${Number(amount).toLocaleString("en-PK")}`;
 
+  const getRecordTypeColor = (type: string) => {
+    switch (type) {
+      case "income":
+        return { bg: "#064e3b", color: "#86efac" };
+      case "expense":
+        return { bg: "#7f1d1d", color: "#fca5a5" };
+      default:
+        return { bg: "#1e3a8a", color: "#93c5fd" };
+    }
+  };
+
   return (
-    <div className="space-y-6 text-gray-800">
-      <div>
-        <h1 className="text-2xl font-bold">Business Records</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage business income, expenses and other records.
-        </p>
+    <div style={{ padding: "20px", color: "#e9e9e9" }}>
+      {/* ── Header ── */}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "8px" }}>
+            FINANCIAL MANAGEMENT
+          </div>
+          <h2 style={{ margin: 0, fontSize: "22px", color: "#fff" }}>Business Records</h2>
+          <p style={{ margin: "6px 0 0", color: "#aaa", fontSize: "12px" }}>
+            Manage business income, expenses and other financial records.
+          </p>
+        </div>
+
+        {/* ── Stats Cards ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
+          {[
+            { label: "Total Income", value: formatAmount(totalIncome), color: "#10b981" },
+            { label: "Total Expenses", value: formatAmount(totalExpense), color: "#ef4444" },
+            { label: "Net Balance", value: formatAmount(netBalance), color: "#3b82f6" },
+            { label: "Total Records", value: records.length, color: "#8b5cf6" },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "8px",
+                padding: "12px",
+              }}
+            >
+              <div style={{ fontSize: "11px", color: "#888" }}>{stat.label}</div>
+              <div
+                style={{
+                  fontSize: typeof stat.value === "number" ? "20px" : "16px",
+                  fontWeight: "bold",
+                  color: stat.color,
+                  marginTop: "6px",
+                }}
+              >
+                {stat.value}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Total Income</p>
-          <h2 className="mt-2 text-2xl font-bold text-green-600">
-            {formatAmount(totalIncome)}
-          </h2>
-        </div>
-
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Total Expenses</p>
-          <h2 className="mt-2 text-2xl font-bold text-red-600">
-            {formatAmount(totalExpense)}
-          </h2>
-        </div>
-
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Net Balance</p>
-          <h2 className="mt-2 text-2xl font-bold text-blue-600">
-            {formatAmount(totalIncome - totalExpense)}
-          </h2>
-        </div>
-      </div>
-
+      {/* ── Messages ── */}
       {message && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "#064e3b",
+            color: "#86efac",
+            borderRadius: "6px",
+            marginBottom: "16px",
+            fontSize: "12px",
+          }}
+        >
           {message}
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "#7f1d1d",
+            color: "#fca5a5",
+            borderRadius: "6px",
+            marginBottom: "16px",
+            fontSize: "12px",
+          }}
+        >
           {error}
         </div>
       )}
 
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h2 className="mb-5 text-lg font-semibold">
-          {editingId ? "Edit Business Record" : "Add Business Record"}
-        </h2>
+      {/* ── Create/Edit Form ── */}
+      <div
+        style={{
+          background: "#1a1a1a",
+          border: "1px solid #333",
+          borderRadius: "8px",
+          padding: "20px",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+            {editingId ? "EDIT RECORD" : "NEW RECORD"}
+          </div>
+          <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>
+            {editingId ? "Update Business Record" : "Add Business Record"}
+          </h3>
+        </div>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Record Title *</label>
-            <input
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              placeholder="Enter record title"
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            />
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Record Title *
+              </label>
+              <input
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                required
+                placeholder="Enter record title"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Record Type *
+              </label>
+              <select
+                name="record_type"
+                value={form.record_type}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              >
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Amount (PKR) *
+              </label>
+              <input
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.amount}
+                onChange={handleChange}
+                required
+                placeholder="Enter amount"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Category
+              </label>
+              <input
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                placeholder="e.g. Salary, Sales, Rent"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Record Date *
+              </label>
+              <input
+                name="record_date"
+                type="date"
+                value={form.record_date}
+                onChange={handleChange}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Department
+              </label>
+              <select
+                name="department_id"
+                value={form.department_id}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              >
+                <option value="">No Department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                Reference Number
+              </label>
+              <input
+                name="reference_number"
+                value={form.reference_number}
+                onChange={handleChange}
+                placeholder="Optional reference"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "#252525",
+                  border: "1px solid #444",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+              />
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Record Type *</label>
-            <select
-              name="record_type"
-              value={form.record_type}
-              onChange={handleChange}
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            >
-              <option value="income">Income</option>
-              <option value="expense">Expense</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Amount (PKR) *</label>
-            <input
-              name="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.amount}
-              onChange={handleChange}
-              required
-              placeholder="Enter amount"
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Category</label>
-            <input
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              placeholder="e.g. Salary, Sales, Rent"
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Department</label>
-            <select
-              name="department_id"
-              value={form.department_id}
-              onChange={handleChange}
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            >
-              <option value="">No Department</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Record Date *</label>
-            <input
-              name="record_date"
-              type="date"
-              value={form.record_date}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Reference Number</label>
-            <input
-              name="reference_number"
-              value={form.reference_number}
-              onChange={handleChange}
-              placeholder="Optional reference"
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Description</label>
+            <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+              Description
+            </label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
               rows={2}
               placeholder="Additional details"
-              className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                background: "#252525",
+                border: "1px solid #444",
+                borderRadius: "6px",
+                color: "#fff",
+                fontSize: "12px",
+                fontFamily: "Arial, sans-serif",
+              }}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              style={{
+                padding: "10px 16px",
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "12px",
+                opacity: saving ? 0.6 : 1,
+              }}
             >
-              {saving
-                ? "Saving..."
-                : editingId
-                ? "Update Record"
-                : "Add Record"}
+              {saving ? "Saving..." : editingId ? "Update Record" : "Add Record"}
             </button>
 
             {editingId && (
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-lg border px-5 py-2.5 font-medium hover:bg-gray-50"
+                style={{
+                  padding: "10px 16px",
+                  background: "#444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
               >
                 Cancel
               </button>
@@ -413,99 +637,259 @@ export default function BusinessRecords() {
         </form>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-        <div className="border-b p-5">
-          <h2 className="text-lg font-semibold">All Business Records</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Total records: {records.length}
-          </p>
+      {/* ── Search & Filters ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search title, category..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: "8px 12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            color: "#fff",
+            fontSize: "12px",
+          }}
+        />
+
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          style={{
+            padding: "8px 12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            color: "#fff",
+            fontSize: "12px",
+          }}
+        >
+          <option value="all">All Types</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="other">Other</option>
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{
+            padding: "8px 12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            color: "#fff",
+            fontSize: "12px",
+          }}
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          placeholder="From date"
+          style={{
+            padding: "8px 12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            color: "#fff",
+            fontSize: "12px",
+          }}
+        />
+
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          placeholder="To date"
+          style={{
+            padding: "8px 12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            color: "#fff",
+            fontSize: "12px",
+          }}
+        />
+
+        <button
+          onClick={() => {
+            setSearchTerm("");
+            setTypeFilter("all");
+            setStatusFilter("all");
+            setDateFrom("");
+            setDateTo("");
+          }}
+          style={{
+            padding: "8px 12px",
+            background: "#444",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Clear Filters
+        </button>
+      </div>
+
+      {/* ── Records Table ── */}
+      <div
+        style={{
+          background: "#1a1a1a",
+          border: "1px solid #333",
+          borderRadius: "8px",
+          overflow: "hidden",
+          marginBottom: "16px",
+        }}
+      >
+        <div style={{ padding: "16px", borderBottom: "1px solid #333" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "4px" }}>
+                FINANCIAL RECORDS
+              </div>
+              <h3 style={{ margin: 0, fontSize: "14px", color: "#fff" }}>All Business Records</h3>
+            </div>
+            <div style={{ color: "#888", fontSize: "11px" }}>
+              {filteredRecords.length} Records
+            </div>
+          </div>
         </div>
 
         {loading ? (
-          <p className="p-6 text-center text-gray-500">Loading records...</p>
-        ) : records.length === 0 ? (
-          <p className="p-6 text-center text-gray-500">
-            No business records found. Add your first record above.
-          </p>
+          <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>Loading records...</div>
+        ) : filteredRecords.length === 0 ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>
+            {searchTerm || typeFilter !== "all" || statusFilter !== "all" || dateFrom || dateTo
+              ? "No records match your filters."
+              : "No business records found. Add your first record above."}
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="p-3">Title</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">Department</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Actions</th>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #333" }}>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Title
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Type
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Amount
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Category
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Date
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left", color: "#888", fontWeight: "normal" }}>
+                    Status
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "center", color: "#888", fontWeight: "normal" }}>
+                    Actions
+                  </th>
                 </tr>
               </thead>
-
-              <tbody className="divide-y">
-                {records.map((record) => {
-                  const department = departments.find(
-                    (item) => item.id === record.department_id
-                  );
-
+              <tbody>
+                {paginatedRecords.map((record) => {
+                  const typeColor = getRecordTypeColor(record.record_type);
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="p-3">
-                        <p className="font-medium">{record.title}</p>
-                        {record.category && (
-                          <p className="text-xs text-gray-500">
-                            {record.category}
-                          </p>
-                        )}
+                    <tr key={record.id} style={{ borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: "12px", color: "#fff", fontWeight: "bold" }}>
+                        {record.title}
                       </td>
-
-                      <td className="p-3 capitalize">
-                        {record.record_type}
+                      <td style={{ padding: "12px" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "4px 10px",
+                            borderRadius: "4px",
+                            fontSize: "10px",
+                            fontWeight: "bold",
+                            background: typeColor.bg,
+                            color: typeColor.color,
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {record.record_type}
+                        </span>
                       </td>
-
-                      <td className="p-3 font-medium">
+                      <td style={{ padding: "12px", color: "#fff", fontWeight: "bold" }}>
                         {formatAmount(Number(record.amount))}
                       </td>
-
-                      <td className="p-3">
-                        {department?.name || "—"}
+                      <td style={{ padding: "12px", color: "#aaa" }}>
+                        {record.category || "—"}
                       </td>
-
-                      <td className="p-3">{record.record_date}</td>
-
-                      <td className="p-3">
+                      <td style={{ padding: "12px", color: "#888" }}>
+                        {record.record_date}
+                      </td>
+                      <td style={{ padding: "12px" }}>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            record.status === "active"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-600"
-                          }`}
+                          style={{
+                            display: "inline-block",
+                            padding: "4px 10px",
+                            borderRadius: "4px",
+                            fontSize: "10px",
+                            fontWeight: "bold",
+                            background: record.status === "active" ? "#064e3b" : "#7f1d1d",
+                            color: record.status === "active" ? "#86efac" : "#fca5a5",
+                          }}
                         >
                           {record.status}
                         </span>
                       </td>
-
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-2">
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
                           <button
                             onClick={() => handleEdit(record)}
-                            className="text-blue-600 hover:underline"
+                            style={{
+                              padding: "4px 8px",
+                              background: "#1e40af",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "10px",
+                            }}
                           >
                             Edit
                           </button>
-
                           <button
                             onClick={() => toggleStatus(record)}
-                            className="text-orange-600 hover:underline"
+                            style={{
+                              padding: "4px 8px",
+                              background: "#444",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "10px",
+                            }}
                           >
-                            {record.status === "active"
-                              ? "Deactivate"
-                              : "Activate"}
+                            {record.status === "active" ? "Deactivate" : "Activate"}
                           </button>
-
                           <button
                             onClick={() => deleteRecord(record.id)}
-                            className="text-red-600 hover:underline"
+                            style={{
+                              padding: "4px 8px",
+                              background: "#7f1d1d",
+                              color: "#fca5a5",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "10px",
+                            }}
                           >
                             Delete
                           </button>
@@ -519,6 +903,67 @@ export default function BusinessRecords() {
           </div>
         )}
       </div>
+
+      {/* ── Pagination ── */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: "8px", alignItems: "center" }}>
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            style={{
+              padding: "6px 10px",
+              background: currentPage === 1 ? "#333" : "#444",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: currentPage === 1 ? "not-allowed" : "pointer",
+              fontSize: "11px",
+            }}
+          >
+            ← Previous
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              style={{
+                padding: "6px 10px",
+                background: currentPage === page ? "#2563eb" : "#333",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "11px",
+                fontWeight: currentPage === page ? "bold" : "normal",
+              }}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: "6px 10px",
+              background: currentPage === totalPages ? "#333" : "#444",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+              fontSize: "11px",
+            }}
+          >
+            Next →
+          </button>
+
+          <span style={{ color: "#888", fontSize: "11px", marginLeft: "8px" }}>
+            Page {currentPage} of {totalPages}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
+
