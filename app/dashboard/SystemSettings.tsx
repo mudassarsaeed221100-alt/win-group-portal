@@ -13,6 +13,13 @@ type Settings = {
   currency: string;
   timezone: string;
   maintenance_mode: boolean;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  backup_enabled?: boolean;
+  backup_frequency?: string;
+  session_timeout?: number;
+  rate_limit?: number;
 };
 
 const defaultSettings: Settings = {
@@ -24,6 +31,13 @@ const defaultSettings: Settings = {
   currency: "PKR",
   timezone: "Asia/Karachi",
   maintenance_mode: false,
+  smtp_host: "",
+  smtp_port: 587,
+  smtp_user: "",
+  backup_enabled: false,
+  backup_frequency: "daily",
+  session_timeout: 30,
+  rate_limit: 100,
 };
 
 export default function SystemSettings() {
@@ -32,28 +46,67 @@ export default function SystemSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState("");
+  const [updatedBy, setUpdatedBy] = useState("");
+  const [activeTab, setActiveTab] = useState("general");
 
+  /* ── Load Settings ── */
   useEffect(() => {
     async function loadSettings() {
-      const { data, error } = await supabase
-        .from("system_settings")
-        .select("*")
-        .eq("id", 1)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("system_settings")
+          .select("*")
+          .eq("id", 1)
+          .maybeSingle();
 
-      if (error) {
-        setError(error.message);
-      } else if (data) {
-        setSettings({
-          company_name: data.company_name || "",
-          logo_url: data.logo_url || "",
-          contact_email: data.contact_email || "",
-          contact_phone: data.contact_phone || "",
-          address: data.address || "",
-          currency: data.currency || "PKR",
-          timezone: data.timezone || "Asia/Karachi",
-          maintenance_mode: data.maintenance_mode ?? false,
-        });
+        if (error) throw error;
+
+        if (data) {
+          setSettings({
+            company_name: data.company_name || "WIN GROUP",
+            logo_url: data.logo_url || "",
+            contact_email: data.contact_email || "",
+            contact_phone: data.contact_phone || "",
+            address: data.address || "",
+            currency: data.currency || "PKR",
+            timezone: data.timezone || "Asia/Karachi",
+            maintenance_mode: data.maintenance_mode ?? false,
+            smtp_host: data.smtp_host || "",
+            smtp_port: data.smtp_port || 587,
+            smtp_user: data.smtp_user || "",
+            backup_enabled: data.backup_enabled ?? false,
+            backup_frequency: data.backup_frequency || "daily",
+            session_timeout: data.session_timeout || 30,
+            rate_limit: data.rate_limit || 100,
+          });
+
+          if (data.updated_at) {
+            setLastUpdated(
+              new Date(data.updated_at).toLocaleString("en-PK", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })
+            );
+          }
+
+          if (data.updated_by) {
+            const { data: userData } = await supabase
+              .from("profiles")
+              .select("first_name, surname")
+              .eq("id", data.updated_by)
+              .maybeSingle();
+
+            if (userData) {
+              setUpdatedBy(
+                `${userData.first_name || ""} ${userData.surname || ""}`.trim() ||
+                  "System"
+              );
+            }
+          }
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to load settings");
       }
 
       setLoading(false);
@@ -62,6 +115,7 @@ export default function SystemSettings() {
     loadSettings();
   }, []);
 
+  /* ── Update Field ── */
   function updateField<K extends keyof Settings>(
     field: K,
     value: Settings[K]
@@ -74,6 +128,7 @@ export default function SystemSettings() {
     setError("");
   }
 
+  /* ── Save Settings ── */
   async function saveSettings(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -90,44 +145,60 @@ export default function SystemSettings() {
       return;
     }
 
+    if (settings.smtp_port && (settings.smtp_port < 1 || settings.smtp_port > 65535)) {
+      setError("SMTP port must be between 1 and 65535.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
     setError("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
 
-    if (userError || !user) {
-      setError("Your session could not be verified. Please log in again.");
-      setSaving(false);
-      return;
-    }
+      if (sessionError || !sessionData.session?.user) {
+        throw new Error("Your session could not be verified. Please log in again.");
+      }
 
-    const { error: saveError } = await supabase
-      .from("system_settings")
-      .upsert(
-        {
-          id: 1,
-          company_name: settings.company_name.trim(),
-          logo_url: settings.logo_url.trim() || null,
-          contact_email: settings.contact_email.trim() || null,
-          contact_phone: settings.contact_phone.trim() || null,
-          address: settings.address.trim() || null,
-          currency: settings.currency,
-          timezone: settings.timezone,
-          maintenance_mode: settings.maintenance_mode,
-          updated_by: user.id,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      );
+      const { error: saveError } = await supabase
+        .from("system_settings")
+        .upsert(
+          {
+            id: 1,
+            company_name: settings.company_name.trim(),
+            logo_url: settings.logo_url.trim() || null,
+            contact_email: settings.contact_email.trim() || null,
+            contact_phone: settings.contact_phone.trim() || null,
+            address: settings.address.trim() || null,
+            currency: settings.currency,
+            timezone: settings.timezone,
+            maintenance_mode: settings.maintenance_mode,
+            smtp_host: settings.smtp_host?.trim() || null,
+            smtp_port: settings.smtp_port || null,
+            smtp_user: settings.smtp_user?.trim() || null,
+            backup_enabled: settings.backup_enabled,
+            backup_frequency: settings.backup_frequency,
+            session_timeout: settings.session_timeout,
+            rate_limit: settings.rate_limit,
+            updated_by: sessionData.session.user.id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
 
-    if (saveError) {
-      setError(saveError.message);
-    } else {
+      if (saveError) throw saveError;
+
       setMessage("System settings successfully saved.");
+      setLastUpdated(
+        new Date().toLocaleString("en-PK", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      );
+    } catch (err: any) {
+      setError(err.message || "Failed to save settings");
     }
 
     setSaving(false);
@@ -135,456 +206,693 @@ export default function SystemSettings() {
 
   if (loading) {
     return (
-      <div className="loading">
+      <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>
         Loading System Settings...
-        <style jsx>{`
-          .loading {
-            padding: 35px;
-            color: #ccc;
-            background: #191919;
-            border: 1px solid #383838;
-            border-radius: 10px;
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="settings-page">
-      <div className="intro">
-        <div>
-          <span className="eyebrow">FOUNDER CONTROL CENTER</span>
-          <h2>System Settings</h2>
-          <p>Manage your organization's main system configuration.</p>
+    <div style={{ padding: "20px", color: "#e9e9e9" }}>
+      {/* ── Header ── */}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "8px" }}>
+            FOUNDER CONTROL CENTER
+          </div>
+          <h2 style={{ margin: 0, fontSize: "22px", color: "#fff" }}>System Settings</h2>
+          <p style={{ margin: "6px 0 0", color: "#aaa", fontSize: "12px" }}>
+            Manage your organization's main system configuration.
+          </p>
         </div>
-        <div className="status">FOUNDER ACCESS</div>
+
+        {/* ── System Info ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
+          {[
+            { label: "Status", value: settings.maintenance_mode ? "🔧 Maintenance" : "✅ Active", color: settings.maintenance_mode ? "#f59e0b" : "#10b981" },
+            { label: "Last Updated", value: lastUpdated || "—", color: "#3b82f6" },
+            { label: "Updated By", value: updatedBy || "System", color: "#8b5cf6" },
+            { label: "Currency", value: settings.currency, color: "#10b981" },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "8px",
+                padding: "12px",
+              }}
+            >
+              <div style={{ fontSize: "11px", color: "#888" }}>{stat.label}</div>
+              <div style={{ fontSize: "14px", fontWeight: "bold", color: stat.color, marginTop: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {stat.value}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {message && <div className="success">{message}</div>}
-      {error && <div className="error">{error}</div>}
+      {/* ── Messages ── */}
+      {message && (
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "#064e3b",
+            color: "#86efac",
+            borderRadius: "6px",
+            marginBottom: "16px",
+            fontSize: "12px",
+          }}
+        >
+          ✓ {message}
+        </div>
+      )}
 
+      {error && (
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "#7f1d1d",
+            color: "#fca5a5",
+            borderRadius: "6px",
+            marginBottom: "16px",
+            fontSize: "12px",
+          }}
+        >
+          ✕ {error}
+        </div>
+      )}
+
+      {/* ── Tabs ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "20px",
+          borderBottom: "1px solid #333",
+          overflowX: "auto",
+        }}
+      >
+        {[
+          { id: "general", label: "General" },
+          { id: "contact", label: "Contact" },
+          { id: "regional", label: "Regional" },
+          { id: "email", label: "Email" },
+          { id: "backup", label: "Backup" },
+          { id: "advanced", label: "Advanced" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: "12px 16px",
+              background: activeTab === tab.id ? "#2563eb" : "transparent",
+              color: activeTab === tab.id ? "#fff" : "#888",
+              border: "none",
+              borderBottom: activeTab === tab.id ? "2px solid #2563eb" : "none",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: activeTab === tab.id ? "bold" : "normal",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Form ── */}
       <form onSubmit={saveSettings}>
-        <section className="card">
-          <div className="section-heading">
-            <span>01</span>
-            <div>
-              <h3>Company Information</h3>
-              <p>Basic organization details.</p>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Company Name *</label>
-            <input
-              value={settings.company_name}
-              onChange={(e) =>
-                updateField("company_name", e.target.value)
-              }
-              placeholder="WIN GROUP"
-              required
-            />
-          </div>
-
-          <div className="field">
-            <label>Company Logo URL</label>
-            <input
-              value={settings.logo_url}
-              onChange={(e) =>
-                updateField("logo_url", e.target.value)
-              }
-              placeholder="https://example.com/logo.png"
-            />
-            <small>Abhi image URL supported hai; direct file upload baad mein add karenge.</small>
-          </div>
-
-          {settings.logo_url && (
-            <div className="logo-preview">
-              <span>Logo Preview</span>
-              <img
-                src={settings.logo_url}
-                alt="Company logo preview"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            </div>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="section-heading">
-            <span>02</span>
-            <div>
-              <h3>Contact Information</h3>
-              <p>Official company contact details.</p>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Contact Email</label>
-            <input
-              type="email"
-              value={settings.contact_email}
-              onChange={(e) =>
-                updateField("contact_email", e.target.value)
-              }
-              placeholder="company@example.com"
-            />
-          </div>
-
-          <div className="field">
-            <label>Contact Phone</label>
-            <input
-              value={settings.contact_phone}
-              onChange={(e) =>
-                updateField("contact_phone", e.target.value)
-              }
-              placeholder="03XXXXXXXXX"
-            />
-          </div>
-
-          <div className="field">
-            <label>Company Address</label>
-            <textarea
-              value={settings.address}
-              onChange={(e) =>
-                updateField("address", e.target.value)
-              }
-              placeholder="Enter company address"
-              rows={3}
-            />
-          </div>
-        </section>
-
-        <section className="card">
-          <div className="section-heading">
-            <span>03</span>
-            <div>
-              <h3>Regional Settings</h3>
-              <p>Currency and system time zone.</p>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Currency</label>
-            <select
-              value={settings.currency}
-              onChange={(e) =>
-                updateField("currency", e.target.value)
-              }
-            >
-              <option value="PKR">PKR - Pakistani Rupee</option>
-              <option value="USD">USD - US Dollar</option>
-              <option value="AED">AED - UAE Dirham</option>
-              <option value="SAR">SAR - Saudi Riyal</option>
-              <option value="GBP">GBP - British Pound</option>
-            </select>
-          </div>
-
-          <div className="field">
-            <label>Time Zone</label>
-            <select
-              value={settings.timezone}
-              onChange={(e) =>
-                updateField("timezone", e.target.value)
-              }
-            >
-              <option value="Asia/Karachi">Pakistan - Karachi</option>
-              <option value="Asia/Dubai">UAE - Dubai</option>
-              <option value="Asia/Riyadh">Saudi Arabia - Riyadh</option>
-              <option value="Europe/London">United Kingdom - London</option>
-              <option value="America/New_York">USA - New York</option>
-              <option value="UTC">UTC</option>
-            </select>
-          </div>
-        </section>
-
-        <section className="card">
-          <div className="section-heading">
-            <span>04</span>
-            <div>
-              <h3>System Control</h3>
-              <p>Maintenance mode configuration.</p>
-            </div>
-          </div>
-
-          <div className="maintenance">
-            <div>
-              <strong>Maintenance Mode</strong>
-              <p>
-                This setting is saved in the database. It does not yet
-                automatically block user access.
-              </p>
+        {/* ── General Tab ── */}
+        {activeTab === "general" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                COMPANY INFORMATION
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>Basic Organization Details</h3>
             </div>
 
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={settings.maintenance_mode}
-                onChange={(e) =>
-                  updateField("maintenance_mode", e.target.checked)
-                }
-              />
-              <span className="slider" />
-            </label>
-          </div>
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Company Name *
+                </label>
+                <input
+                  value={settings.company_name}
+                  onChange={(e) => updateField("company_name", e.target.value)}
+                  placeholder="WIN GROUP"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
 
-          <div className="mode-status">
-            Current status:{" "}
-            <strong>
-              {settings.maintenance_mode ? "Enabled" : "Disabled"}
-            </strong>
-          </div>
-        </section>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Company Logo URL
+                </label>
+                <input
+                  value={settings.logo_url}
+                  onChange={(e) => updateField("logo_url", e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>
+                  Image URL supported; direct file upload baad mein add karenge.
+                </div>
+              </div>
 
-        <div className="actions">
-          <button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save System Settings"}
+              {settings.logo_url && (
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
+                  <span style={{ fontSize: "11px", color: "#888" }}>Logo Preview:</span>
+                  <img
+                    src={settings.logo_url}
+                    alt="Company logo"
+                    style={{
+                      maxWidth: "100px",
+                      maxHeight: "60px",
+                      objectFit: "contain",
+                      background: "#fff",
+                      padding: "4px",
+                      borderRadius: "4px",
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Contact Tab ── */}
+        {activeTab === "contact" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                CONTACT INFORMATION
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>Official Company Contact Details</h3>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Contact Email
+                </label>
+                <input
+                  type="email"
+                  value={settings.contact_email}
+                  onChange={(e) => updateField("contact_email", e.target.value)}
+                  placeholder="company@example.com"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Contact Phone
+                </label>
+                <input
+                  value={settings.contact_phone}
+                  onChange={(e) => updateField("contact_phone", e.target.value)}
+                  placeholder="03XXXXXXXXX"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Company Address
+                </label>
+                <textarea
+                  value={settings.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                  placeholder="Enter company address"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                    fontFamily: "Arial, sans-serif",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Regional Tab ── */}
+        {activeTab === "regional" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                REGIONAL SETTINGS
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>Currency and Time Zone</h3>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Currency
+                </label>
+                <select
+                  value={settings.currency}
+                  onChange={(e) => updateField("currency", e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value="PKR">PKR - Pakistani Rupee</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="AED">AED - UAE Dirham</option>
+                  <option value="SAR">SAR - Saudi Riyal</option>
+                  <option value="GBP">GBP - British Pound</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Time Zone
+                </label>
+                <select
+                  value={settings.timezone}
+                  onChange={(e) => updateField("timezone", e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value="Asia/Karachi">Pakistan - Karachi</option>
+                  <option value="Asia/Dubai">UAE - Dubai</option>
+                  <option value="Asia/Riyadh">Saudi Arabia - Riyadh</option>
+                  <option value="Europe/London">United Kingdom - London</option>
+                  <option value="America/New_York">USA - New York</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Email Tab ── */}
+        {activeTab === "email" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                EMAIL CONFIGURATION
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>SMTP Settings for Email Notifications</h3>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  SMTP Host
+                </label>
+                <input
+                  value={settings.smtp_host || ""}
+                  onChange={(e) => updateField("smtp_host", e.target.value)}
+                  placeholder="smtp.gmail.com"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  SMTP Port
+                </label>
+                <input
+                  type="number"
+                  value={settings.smtp_port || 587}
+                  onChange={(e) => updateField("smtp_port", parseInt(e.target.value))}
+                  placeholder="587"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  SMTP Username
+                </label>
+                <input
+                  value={settings.smtp_user || ""}
+                  onChange={(e) => updateField("smtp_user", e.target.value)}
+                  placeholder="your-email@gmail.com"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Backup Tab ── */}
+        {activeTab === "backup" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                BACKUP CONFIGURATION
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>Automatic Backup Settings</h3>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: "bold", color: "#fff", marginBottom: "4px" }}>
+                    Enable Automatic Backups
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#888" }}>
+                    Automatically backup database and files
+                  </div>
+                </div>
+                <label
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    width: "45px",
+                    height: "24px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={settings.backup_enabled || false}
+                    onChange={(e) => updateField("backup_enabled", e.target.checked)}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: settings.backup_enabled ? "#10b981" : "#555",
+                      borderRadius: "20px",
+                      transition: "0.2s",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        height: "18px",
+                        width: "18px",
+                        left: settings.backup_enabled ? "24px" : "3px",
+                        bottom: "3px",
+                        background: "#fff",
+                        borderRadius: "50%",
+                        transition: "0.2s",
+                      }}
+                    />
+                  </span>
+                </label>
+              </div>
+
+              {settings.backup_enabled && (
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                    Backup Frequency
+                  </label>
+                  <select
+                    value={settings.backup_frequency || "daily"}
+                    onChange={(e) => updateField("backup_frequency", e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      background: "#252525",
+                      border: "1px solid #444",
+                      borderRadius: "6px",
+                      color: "#fff",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <option value="hourly">Hourly</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Advanced Tab ── */}
+        {activeTab === "advanced" && (
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+                ADVANCED SETTINGS
+              </div>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>System Control & Limits</h3>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Session Timeout (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="1440"
+                  value={settings.session_timeout || 30}
+                  onChange={(e) => updateField("session_timeout", parseInt(e.target.value))}
+                  placeholder="30"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>
+                  Auto-logout after inactivity (5-1440 minutes)
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "#aaa", marginBottom: "4px" }}>
+                  Rate Limit (requests/minute)
+                </label>
+                <input
+                  type="number"
+                  min="10"
+                  max="1000"
+                  value={settings.rate_limit || 100}
+                  onChange={(e) => updateField("rate_limit", parseInt(e.target.value))}
+                  placeholder="100"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "#252525",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>
+                  API rate limiting (10-1000 requests/minute)
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #333" }}>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: "bold", color: "#fff", marginBottom: "4px" }}>
+                    🔧 Maintenance Mode
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#888" }}>
+                    Temporarily disable user access for maintenance
+                  </div>
+                </div>
+                <label
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    width: "45px",
+                    height: "24px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={settings.maintenance_mode}
+                    onChange={(e) => updateField("maintenance_mode", e.target.checked)}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: settings.maintenance_mode ? "#f59e0b" : "#555",
+                      borderRadius: "20px",
+                      transition: "0.2s",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        height: "18px",
+                        width: "18px",
+                        left: settings.maintenance_mode ? "24px" : "3px",
+                        bottom: "3px",
+                        background: "#fff",
+                        borderRadius: "50%",
+                        transition: "0.2s",
+                      }}
+                    />
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Save Button ── */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              padding: "10px 20px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Saving..." : "💾 Save Settings"}
           </button>
         </div>
       </form>
-
-      <style jsx>{`
-        .settings-page {
-          color: #eee;
-          padding-top: 25px;
-          padding-bottom: 30px;
-        }
-
-        .intro {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 15px;
-          margin-bottom: 22px;
-        }
-
-        .eyebrow {
-          color: #999;
-          font-size: 9px;
-          letter-spacing: 2px;
-        }
-
-        .intro h2 {
-          color: white;
-          font-size: 23px;
-          margin: 8px 0;
-        }
-
-        .intro p, .section-heading p {
-          color: #999;
-          font-size: 11px;
-          margin: 0;
-        }
-
-        .status {
-          color: #ddd;
-          border: 1px solid #555;
-          padding: 8px 11px;
-          border-radius: 5px;
-          font-size: 9px;
-          letter-spacing: 1px;
-        }
-
-        .card {
-          background: linear-gradient(145deg,#202020,#171717);
-          border: 1px solid #383838;
-          border-radius: 9px;
-          padding: 22px;
-          margin-bottom: 17px;
-        }
-
-        .section-heading {
-          display: flex;
-          gap: 13px;
-          align-items: center;
-          padding-bottom: 17px;
-          margin-bottom: 18px;
-          border-bottom: 1px solid #383838;
-        }
-
-        .section-heading > span {
-          color: #ddd;
-          border: 1px solid #555;
-          border-radius: 6px;
-          padding: 8px;
-          font-size: 11px;
-        }
-
-        .section-heading h3 {
-          color: white;
-          margin: 0 0 5px;
-          font-size: 14px;
-        }
-
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          margin-bottom: 17px;
-        }
-
-        .field:last-child { margin-bottom: 0; }
-
-        .field label {
-          color: #ddd;
-          font-size: 11px;
-          font-weight: bold;
-        }
-
-        .field input, .field textarea, .field select {
-          width: 100%;
-          background: #101010;
-          border: 1px solid #484848;
-          border-radius: 6px;
-          padding: 12px;
-          color: white;
-          font-size: 12px;
-          outline: none;
-        }
-
-        .field input:focus, .field textarea:focus, .field select:focus {
-          border-color: #aaa;
-        }
-
-        .field small {
-          color: #888;
-          font-size: 10px;
-        }
-
-        .logo-preview {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          color: #aaa;
-          font-size: 11px;
-        }
-
-        .logo-preview img {
-          max-width: 100px;
-          max-height: 65px;
-          object-fit: contain;
-          background: white;
-          padding: 5px;
-          border-radius: 5px;
-        }
-
-        .maintenance {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 15px;
-        }
-
-        .maintenance strong {
-          color: white;
-          font-size: 12px;
-        }
-
-        .maintenance p {
-          color: #999;
-          font-size: 10px;
-          line-height: 1.6;
-          max-width: 430px;
-        }
-
-        .switch {
-          position: relative;
-          display: inline-block;
-          width: 45px;
-          height: 24px;
-          flex-shrink: 0;
-        }
-
-        .switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .slider {
-          position: absolute;
-          inset: 0;
-          cursor: pointer;
-          background: #555;
-          border-radius: 20px;
-          transition: .2s;
-        }
-
-        .slider:before {
-          content: "";
-          position: absolute;
-          height: 18px;
-          width: 18px;
-          left: 3px;
-          bottom: 3px;
-          background: white;
-          border-radius: 50%;
-          transition: .2s;
-        }
-
-        .switch input:checked + .slider {
-          background: #888;
-        }
-
-        .switch input:checked + .slider:before {
-          transform: translateX(21px);
-        }
-
-        .mode-status {
-          margin-top: 13px;
-          color: #999;
-          font-size: 10px;
-        }
-
-        .mode-status strong { color: #ddd; }
-
-        .actions {
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .actions button {
-          background: #e4e4e4;
-          color: #111;
-          border: none;
-          border-radius: 6px;
-          padding: 13px 20px;
-          font-weight: bold;
-          font-size: 12px;
-          cursor: pointer;
-        }
-
-        .actions button:hover { background: white; }
-        .actions button:disabled { opacity: .6; cursor: not-allowed; }
-
-        .success, .error {
-          padding: 12px 14px;
-          border-radius: 6px;
-          margin-bottom: 16px;
-          font-size: 12px;
-        }
-
-        .success {
-          background: #173323;
-          border: 1px solid #356747;
-          color: #b9e7c8;
-        }
-
-        .error {
-          background: #351919;
-          border: 1px solid #754040;
-          color: #ffc2c2;
-          overflow-wrap: anywhere;
-        }
-
-        @media (max-width: 600px) {
-          .intro { align-items: flex-start; flex-direction: column; }
-          .card { padding: 16px; }
-          .actions button { width: 100%; }
-        }
-      `}</style>
     </div>
   );
 }
+
