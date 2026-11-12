@@ -49,6 +49,7 @@ export default function FlexibleWork() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState<"success" | "error">("success");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Filters
   const [taskSearch, setTaskSearch] = useState("");
@@ -123,8 +124,30 @@ export default function FlexibleWork() {
     );
   }
 
-  /* ── Create Task ── */
-  async function createTask() {
+  /* ── Reset Form ── */
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setReward("");
+    setTargetRoles(["staff"]);
+    setDeadline("");
+    setEditingId(null);
+    setNotice("");
+  }
+
+  /* ── Edit Task ── */
+  function editTask(task: WorkTask) {
+    setEditingId(task.id);
+    setTitle(task.title);
+    setDescription(task.description || "");
+    setReward(String(task.reward_amount));
+    setTargetRoles(task.target_roles);
+    setDeadline(task.deadline ? task.deadline.slice(0, 16) : "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ── Create or Update Task ── */
+  async function saveTask() {
     if (!title.trim() || !reward.trim() || Number(reward) < 0) {
       showNotice("Task title aur valid earning amount enter karein.", "error");
       return;
@@ -143,29 +166,68 @@ export default function FlexibleWork() {
 
       if (!user) throw new Error("Session expire ho gaya. Dobara login karein.");
 
-      const { error } = await supabase.from("work_tasks").insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        reward_amount: Number(reward),
-        target_roles: targetRoles,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
-        created_by: user.id,
-      });
+      if (editingId) {
+        // Update existing task
+        const { error } = await supabase
+          .from("work_tasks")
+          .update({
+            title: title.trim(),
+            description: description.trim() || null,
+            reward_amount: Number(reward),
+            target_roles: targetRoles,
+            deadline: deadline ? new Date(deadline).toISOString() : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      showNotice("New task successfully create ho gaya.", "success");
-      setTitle("");
-      setDescription("");
-      setReward("");
-      setTargetRoles(["staff"]);
-      setDeadline("");
+        showNotice("Task successfully update ho gaya.", "success");
+      } else {
+        // Create new task
+        const { error } = await supabase.from("work_tasks").insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          reward_amount: Number(reward),
+          target_roles: targetRoles,
+          deadline: deadline ? new Date(deadline).toISOString() : null,
+          created_by: user.id,
+        });
+
+        if (error) throw error;
+
+        showNotice("New task successfully create ho gaya.", "success");
+      }
+
+      resetForm();
       await loadData();
     } catch (err: any) {
-      showNotice(err.message || "Task create nahi hua", "error");
+      showNotice(err.message || "Task save nahi hua", "error");
     }
 
     setLoading(false);
+  }
+
+  /* ── Delete Task ── */
+  async function deleteTask(taskId: string) {
+    if (!window.confirm("Kya aap is task ko delete karna chahte hain?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("work_tasks")
+        .delete()
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      showNotice("Task successfully delete ho gaya.", "success");
+      if (editingId === taskId) resetForm();
+      await loadData();
+    } catch (err: any) {
+      showNotice(err.message || "Task delete nahi hua", "error");
+    }
   }
 
   /* ── Toggle Task Status ── */
@@ -422,7 +484,7 @@ export default function FlexibleWork() {
         </div>
       )}
 
-      {/* ── Create Task Form ── */}
+      {/* ── Create/Edit Task Form ── */}
       <div
         style={{
           background: "#1a1a1a",
@@ -434,9 +496,11 @@ export default function FlexibleWork() {
       >
         <div style={{ marginBottom: "16px" }}>
           <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
-            CREATE NEW TASK
+            {editingId ? "EDIT TASK" : "CREATE NEW TASK"}
           </div>
-          <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>Create New Work Task</h3>
+          <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>
+            {editingId ? "Edit Work Task" : "Create New Work Task"}
+          </h3>
         </div>
 
         <div style={{ display: "grid", gap: "12px" }}>
@@ -564,24 +628,43 @@ export default function FlexibleWork() {
           </div>
         </div>
 
-        <button
-          onClick={createTask}
-          disabled={loading}
-          style={{
-            marginTop: "16px",
-            padding: "10px 16px",
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: "12px",
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          {loading ? "Creating..." : "Create Task"}
-        </button>
+        <div style={{ display: "flex", gap: "8px", marginTop: "16px", flexWrap: "wrap" }}>
+          <button
+            onClick={saveTask}
+            disabled={loading}
+            style={{
+              padding: "10px 16px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "Saving..." : editingId ? "Update Task" : "Create Task"}
+          </button>
+
+          {editingId && (
+            <button
+              onClick={resetForm}
+              style={{
+                padding: "10px 16px",
+                background: "#444",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "12px",
+              }}
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Work Tasks Section ── */}
@@ -724,21 +807,55 @@ export default function FlexibleWork() {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => toggleTask(task)}
-                    style={{
-                      padding: "6px 12px",
-                      background: task.status === "active" ? "#7f1d1d" : "#064e3b",
-                      color: task.status === "active" ? "#fca5a5" : "#86efac",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {task.status === "active" ? "Deactivate" : "Activate"}
-                  </button>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => editTask(task)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#2563eb",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+
+                    <button
+                      onClick={() => toggleTask(task)}
+                      style={{
+                        padding: "6px 12px",
+                        background: task.status === "active" ? "#7f1d1d" : "#064e3b",
+                        color: task.status === "active" ? "#fca5a5" : "#86efac",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {task.status === "active" ? "Deactivate" : "Activate"}
+                    </button>
+
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#7f1d1d",
+                        color: "#fca5a5",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </div>
               );
             })}
