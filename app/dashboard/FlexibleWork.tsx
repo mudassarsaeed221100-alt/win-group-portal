@@ -15,6 +15,7 @@ type WorkTask = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 };
 
 type Submission = {
@@ -51,6 +52,7 @@ export default function FlexibleWork() {
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState<"success" | "error">("success");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   // Filters
   const [taskSearch, setTaskSearch] = useState("");
@@ -221,7 +223,7 @@ export default function FlexibleWork() {
     setLoading(false);
   }
 
-  /* ── Delete Task ── */
+  /* ── Soft Delete Task ── */
   async function deleteTask(taskId: string) {
     if (!window.confirm("Kya aap is task ko delete karna chahte hain?")) {
       return;
@@ -230,7 +232,7 @@ export default function FlexibleWork() {
     try {
       const { error } = await supabase
         .from("work_tasks")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", taskId);
 
       if (error) throw error;
@@ -240,6 +242,27 @@ export default function FlexibleWork() {
       await loadData();
     } catch (err: any) {
       showNotice(err.message || "Task delete nahi hua", "error");
+    }
+  }
+
+  /* ── Restore Task ── */
+  async function restoreTask(taskId: string) {
+    if (!window.confirm("Kya aap is task ko restore karna chahte hain?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("work_tasks")
+        .update({ deleted_at: null })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      showNotice("Task successfully restore ho gaya.", "success");
+      await loadData();
+    } catch (err: any) {
+      showNotice(err.message || "Task restore nahi hua", "error");
     }
   }
 
@@ -368,7 +391,9 @@ export default function FlexibleWork() {
   }
 
   /* ── Filter Tasks ── */
-  const filteredTasks = tasks.filter((task) => {
+  const allTasks = showDeleted ? tasks : tasks.filter((t) => !t.deleted_at);
+
+  const filteredTasks = allTasks.filter((task) => {
     if (taskSearch.trim()) {
       const term = taskSearch.toLowerCase();
       if (!task.title.toLowerCase().includes(term) && !task.description?.toLowerCase().includes(term)) {
@@ -421,8 +446,8 @@ export default function FlexibleWork() {
 
   /* ── Stats ── */
   const stats = {
-    totalTasks: tasks.length,
-    activeTasks: tasks.filter((t) => t.status === "active").length,
+    totalTasks: allTasks.length,
+    activeTasks: allTasks.filter((t) => t.status === "active").length,
     totalSubmissions: submissions.length,
     pendingReviews: submissions.filter((s) => s.status === "pending").length,
     approvedWork: submissions.filter((s) => s.status === "approved").length,
@@ -432,13 +457,15 @@ export default function FlexibleWork() {
   };
 
   /* ── Task Analytics ── */
-  const taskAnalytics = tasks.map((task) => {
+  const taskAnalytics = allTasks.map((task) => {
     const taskSubmissions = submissions.filter((s) => s.task_id === task.id);
     const approved = taskSubmissions.filter((s) => s.status === "approved").length;
     const total = taskSubmissions.length;
     const completionRate = total > 0 ? ((approved / total) * 100).toFixed(1) : "0";
     return { task, total, approved, completionRate };
   });
+
+  const deletedCount = tasks.filter((t) => t.deleted_at).length;
 
   return (
     <div style={{ padding: "20px", color: "#e9e9e9" }}>
@@ -711,11 +738,31 @@ export default function FlexibleWork() {
           marginBottom: "20px",
         }}
       >
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
-            WORK TASKS
+        <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "6px" }}>
+              WORK TASKS
+            </div>
+            <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>All Tasks ({filteredTasks.length})</h3>
           </div>
-          <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>All Tasks ({filteredTasks.length})</h3>
+
+          {deletedCount > 0 && (
+            <button
+              onClick={() => setShowDeleted(!showDeleted)}
+              style={{
+                padding: "8px 12px",
+                background: showDeleted ? "#8b5cf6" : "#444",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "11px",
+                fontWeight: "bold",
+              }}
+            >
+              {showDeleted ? `✓ Hide Deleted (${deletedCount})` : `👁️ Show Deleted (${deletedCount})`}
+            </button>
+          )}
         </div>
 
         {/* ── Task Filters ── */}
@@ -788,25 +835,27 @@ export default function FlexibleWork() {
         {/* ── Tasks List ── */}
         {paginatedTasks.length === 0 ? (
           <div style={{ textAlign: "center", color: "#888", padding: "40px" }}>
-            Abhi koi task create nahi hua.
+            {showDeleted ? "Koi deleted task nahi hai." : "Abhi koi task create nahi hua."}
           </div>
         ) : (
           <div style={{ display: "grid", gap: "12px" }}>
             {paginatedTasks.map((task) => {
               const analytics = taskAnalytics.find((t) => t.task.id === task.id);
+              const isDeleted = !!task.deleted_at;
               return (
                 <div
                   key={task.id}
                   style={{
-                    background: "#252525",
-                    border: "1px solid #333",
+                    background: isDeleted ? "#2a1a1a" : "#252525",
+                    border: isDeleted ? "1px solid #5f1d1d" : "1px solid #333",
                     borderRadius: "6px",
                     padding: "12px",
+                    opacity: isDeleted ? 0.7 : 1,
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "8px", marginBottom: "8px" }}>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: "13px", color: "#fff", fontWeight: "bold" }}>
+                      <h4 style={{ margin: 0, fontSize: "13px", color: isDeleted ? "#aaa" : "#fff", fontWeight: "bold", textDecoration: isDeleted ? "line-through" : "none" }}>
                         {task.title}
                       </h4>
                       {task.description && (
@@ -823,11 +872,15 @@ export default function FlexibleWork() {
                         borderRadius: "4px",
                         fontSize: "10px",
                         fontWeight: "bold",
-                        background: task.status === "active" ? "#064e3b" : "#333",
-                        color: task.status === "active" ? "#86efac" : "#aaa",
+                        background: isDeleted
+                          ? "#5f1d1d"
+                          : task.status === "active"
+                          ? "#064e3b"
+                          : "#333",
+                        color: isDeleted ? "#fca5a5" : task.status === "active" ? "#86efac" : "#aaa",
                       }}
                     >
-                      {task.status.toUpperCase()}
+                      {isDeleted ? "DELETED" : task.status.toUpperCase()}
                     </span>
                   </div>
 
@@ -841,54 +894,80 @@ export default function FlexibleWork() {
                     </div>
                   )}
 
+                  {isDeleted && task.deleted_at && (
+                    <div style={{ fontSize: "11px", color: "#ef4444", marginBottom: "8px" }}>
+                      🗑️ Deleted: {new Date(task.deleted_at).toLocaleString("en-PK")}
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                    <button
-                      onClick={() => editTask(task)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ✏️ Edit
-                    </button>
+                    {!isDeleted ? (
+                      <>
+                        <button
+                          onClick={() => editTask(task)}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#2563eb",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
 
-                    <button
-                      onClick={() => toggleTask(task)}
-                      style={{
-                        padding: "6px 12px",
-                        background: task.status === "active" ? "#7f1d1d" : "#064e3b",
-                        color: task.status === "active" ? "#fca5a5" : "#86efac",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {task.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
+                        <button
+                          onClick={() => toggleTask(task)}
+                          style={{
+                            padding: "6px 12px",
+                            background: task.status === "active" ? "#7f1d1d" : "#064e3b",
+                            color: task.status === "active" ? "#fca5a5" : "#86efac",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {task.status === "active" ? "Deactivate" : "Activate"}
+                        </button>
 
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#7f1d1d",
-                        color: "#fca5a5",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      🗑️ Delete
-                    </button>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#7f1d1d",
+                            color: "#fca5a5",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => restoreTask(task.id)}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#064e3b",
+                          color: "#86efac",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        ↩️ Restore
+                      </button>
+                    )}
                   </div>
                 </div>
               );
