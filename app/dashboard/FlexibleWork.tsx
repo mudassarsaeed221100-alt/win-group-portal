@@ -47,6 +47,7 @@ export default function FlexibleWork() {
   const [targetRoles, setTargetRoles] = useState<string[]>(["staff"]);
   const [deadline, setDeadline] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState<"success" | "error">("success");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,6 +107,18 @@ export default function FlexibleWork() {
     } catch (err: any) {
       showNotice(err.message || "Failed to load data", "error");
     }
+  }
+
+  /* ── Refresh Data ── */
+  async function refreshData() {
+    setRefreshing(true);
+    try {
+      await loadData();
+      showNotice("Data successfully refresh ho gaya.", "success");
+    } catch (err: any) {
+      showNotice(err.message || "Refresh nahi hua", "error");
+    }
+    setRefreshing(false);
   }
 
   /* ── Show Notice ── */
@@ -431,14 +444,35 @@ export default function FlexibleWork() {
     <div style={{ padding: "20px", color: "#e9e9e9" }}>
       {/* ── Header ── */}
       <div style={{ marginBottom: "24px" }}>
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "8px" }}>
-            FLEXIBLE WORK MANAGEMENT
+        <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "start", gap: "12px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ color: "#888", fontSize: "10px", letterSpacing: "2px", marginBottom: "8px" }}>
+              FLEXIBLE WORK MANAGEMENT
+            </div>
+            <h2 style={{ margin: 0, fontSize: "22px", color: "#fff" }}>Flexible Work & Earnings</h2>
+            <p style={{ margin: "6px 0 0", color: "#aaa", fontSize: "12px" }}>
+              No fixed duty hours. Work apni marzi ke waqt karein aur approved tasks par earning hasil karein.
+            </p>
           </div>
-          <h2 style={{ margin: 0, fontSize: "22px", color: "#fff" }}>Flexible Work & Earnings</h2>
-          <p style={{ margin: "6px 0 0", color: "#aaa", fontSize: "12px" }}>
-            No fixed duty hours. Work apni marzi ke waqt karein aur approved tasks par earning hasil karein.
-          </p>
+
+          <button
+            onClick={refreshData}
+            disabled={refreshing}
+            style={{
+              padding: "10px 16px",
+              background: refreshing ? "#444" : "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: refreshing ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+              opacity: refreshing ? 0.6 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {refreshing ? "🔄 Refreshing..." : "🔄 Refresh"}
+          </button>
         </div>
 
         {/* ── Stats Cards ── */}
