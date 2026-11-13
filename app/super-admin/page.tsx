@@ -639,8 +639,7 @@ function SubmissionsModule({ submissions, getUserName, getTaskTitle, showNotice,
           <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} style={{ padding: "6px 10px", background: page === totalPages ? "#333" : "#444", color: "#fff", border: "none", borderRadius: "4px", cursor: page === totalPages ? "not-allowed" : "pointer", fontSize: "11px" }}>Next →</button>
         </div>)}
       </div>
-
-
+       
 /* ══════════════════════════════════════════
    MODULE: WORK SUBMISSIONS (Continue)
    Yeh Part 1 ke SubmissionsModule ke andar paste karein
@@ -1219,4 +1218,5 @@ function SupportModule({ tickets, getUserName, showNotice, loadAllData }: any) {
     </div>
   );
 }
+
 
