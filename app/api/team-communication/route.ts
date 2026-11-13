@@ -55,27 +55,37 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getUser(request);
 
-    if (!user) return reply({ error: "Unauthorized. Please login." }, 401);
+    if (!user) {
+      return reply({ error: "Unauthorized. Please login." }, 401);
+    }
 
     const profile = await getProfile(user.id);
 
-    if (!profile) return reply({ error: "Profile not found." }, 404);
+    if (!profile) {
+      return reply({ error: "Profile not found." }, 404);
+    }
 
-    const { data: memberships, error: memberError } = await supabaseAdmin
-      .from("conversation_members")
-      .select("conversation_id")
-      .eq("user_id", user.id);
+    const { data: memberships, error: memberError } =
+      await supabaseAdmin
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", user.id);
 
-    if (memberError) return reply({ error: memberError.message }, 500);
+    if (memberError) {
+      return reply({ error: memberError.message }, 500);
+    }
 
     const conversationIds = [
-      ...new Set((memberships || []).map((item) => item.conversation_id)),
+      ...new Set(
+        (memberships || []).map((item) => item.conversation_id)
+      ),
     ];
 
     if (conversationIds.length === 0) {
       return reply({
         conversations: [],
         members: [],
+        profiles: [],
         messages: [],
         permissions: [],
       });
@@ -92,49 +102,67 @@ export async function GET(request: NextRequest) {
       return reply({ error: conversationError.message }, 500);
     }
 
-    const { data: members, error: membersError } = await supabaseAdmin
-      .from("conversation_members")
-      .select("*")
-      .in("conversation_id", conversationIds);
+    const { data: members, error: membersError } =
+      await supabaseAdmin
+        .from("conversation_members")
+        .select("*")
+        .in("conversation_id", conversationIds);
 
-    if (membersError) return reply({ error: membersError.message }, 500);
+    if (membersError) {
+      return reply({ error: membersError.message }, 500);
+    }
 
     const memberIds = [
       ...new Set((members || []).map((item) => item.user_id)),
     ];
 
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, first_name, surname, username, role, team_code")
-      .in("id", memberIds);
+    let profiles: any[] = [];
+    let permissions: any[] = [];
 
-    if (profilesError) return reply({ error: profilesError.message }, 500);
+    if (memberIds.length > 0) {
+      const { data: profileData, error: profilesError } =
+        await supabaseAdmin
+          .from("profiles")
+          .select("id, first_name, surname, username, role, team_code")
+          .in("id", memberIds);
 
-    const { data: messages, error: messagesError } = await supabaseAdmin
-      .from("messages")
-      .select("*")
-      .in("conversation_id", conversationIds)
-      .order("created_at", { ascending: false })
-      .limit(200);
+      if (profilesError) {
+        return reply({ error: profilesError.message }, 500);
+      }
 
-    if (messagesError) return reply({ error: messagesError.message }, 500);
+      profiles = profileData || [];
 
-    const { data: permissions, error: permissionsError } =
+      const { data: permissionData, error: permissionsError } =
+        await supabaseAdmin
+          .from("chat_permissions")
+          .select("*")
+          .in("user_id", memberIds);
+
+      if (permissionsError) {
+        return reply({ error: permissionsError.message }, 500);
+      }
+
+      permissions = permissionData || [];
+    }
+
+    const { data: messages, error: messagesError } =
       await supabaseAdmin
-        .from("chat_permissions")
+        .from("messages")
         .select("*")
-        .in("user_id", memberIds);
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-    if (permissionsError) {
-      return reply({ error: permissionsError.message }, 500);
+    if (messagesError) {
+      return reply({ error: messagesError.message }, 500);
     }
 
     return reply({
       conversations: conversations || [],
       members: members || [],
-      profiles: profiles || [],
+      profiles,
       messages: messages || [],
-      permissions: permissions || [],
+      permissions,
     });
   } catch (error: any) {
     return reply({ error: error.message || "Server error." }, 500);
@@ -146,11 +174,15 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getUser(request);
 
-    if (!user) return reply({ error: "Unauthorized. Please login." }, 401);
+    if (!user) {
+      return reply({ error: "Unauthorized. Please login." }, 401);
+    }
 
     const actor = await getProfile(user.id);
 
-    if (!actor) return reply({ error: "Profile not found." }, 404);
+    if (!actor) {
+      return reply({ error: "Profile not found." }, 404);
+    }
 
     const body = await request.json();
     const { action } = body;
@@ -161,7 +193,9 @@ export async function POST(request: NextRequest) {
       const messageText = String(body.messageText || "").trim();
 
       if (!conversationId || !messageText) {
-        return reply({ error: "Chat and message are required." }, 400);
+        return reply({
+          error: "Chat and message are required.",
+        }, 400);
       }
 
       if (messageText.length > 5000) {
@@ -176,7 +210,9 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (!membership) {
-        return reply({ error: "You are not a member of this chat." }, 403);
+        return reply({
+          error: "You are not a member of this chat.",
+        }, 403);
       }
 
       const { data: permission } = await supabaseAdmin
@@ -201,7 +237,9 @@ export async function POST(request: NextRequest) {
         .select("*")
         .single();
 
-      if (error) return reply({ error: error.message }, 500);
+      if (error) {
+        return reply({ error: error.message }, 500);
+      }
 
       return reply({ success: true, message });
     }
@@ -210,9 +248,19 @@ export async function POST(request: NextRequest) {
     if (action === "create_conversation") {
       const conversationType = body.conversationType;
       const title = String(body.title || "").trim() || null;
-      const selectedIds: string[] = Array.isArray(body.userIds)
-        ? [...new Set(body.userIds.filter((id: any) => typeof id === "string"))]
+
+      // TypeScript error fixed here
+      const rawUserIds: unknown[] = Array.isArray(body.userIds)
+        ? body.userIds
         : [];
+
+      const selectedIds: string[] = [
+        ...new Set(
+          rawUserIds.filter(
+            (id): id is string => typeof id === "string"
+          )
+        ),
+      ];
 
       if (!["private", "group", "team"].includes(conversationType)) {
         return reply({ error: "Invalid chat type." }, 400);
@@ -235,21 +283,28 @@ export async function POST(request: NextRequest) {
           .eq("team_code", teamCode)
           .in("role", ["super_admin", "admin", "staff"]);
 
-        if (error) return reply({ error: error.message }, 500);
+        if (error) {
+          return reply({ error: error.message }, 500);
+        }
 
-        selectedIds.push(...(teamProfiles || []).map((person) => person.id));
+        selectedIds.push(
+          ...(teamProfiles || []).map((person) => person.id)
+        );
       }
 
       const allMemberIds = [...new Set([...selectedIds, user.id])];
 
-      if (conversationType === "private" && allMemberIds.length !== 2) {
+      if (
+        conversationType === "private" &&
+        allMemberIds.length !== 2
+      ) {
         return reply({
           error: "Private chat must contain exactly two members.",
         }, 400);
       }
 
       if (
-        (conversationType === "group" || conversationType === "team") &&
+        ["group", "team"].includes(conversationType) &&
         allMemberIds.length < 2
       ) {
         return reply({
@@ -263,10 +318,17 @@ export async function POST(request: NextRequest) {
           .select("id, role, team_code")
           .in("id", allMemberIds);
 
-      if (selectedError) return reply({ error: selectedError.message }, 500);
+      if (selectedError) {
+        return reply({ error: selectedError.message }, 500);
+      }
 
-      if (!selectedProfiles || selectedProfiles.length !== allMemberIds.length) {
-        return reply({ error: "One or more members were not found." }, 404);
+      if (
+        !selectedProfiles ||
+        selectedProfiles.length !== allMemberIds.length
+      ) {
+        return reply({
+          error: "One or more members were not found.",
+        }, 404);
       }
 
       if (actor.role !== "founder_owner") {
@@ -278,12 +340,6 @@ export async function POST(request: NextRequest) {
           return reply({
             error: "You can only create chats with your own team members.",
           }, 403);
-        }
-      }
-
-      if (conversationType === "team" && actor.role !== "founder_owner") {
-        if (teamCode !== actor.team_code) {
-          return reply({ error: "You cannot create another team's chat." }, 403);
         }
       }
 
@@ -299,7 +355,9 @@ export async function POST(request: NextRequest) {
           .select("*")
           .single();
 
-      if (createError) return reply({ error: createError.message }, 500);
+      if (createError) {
+        return reply({ error: createError.message }, 500);
+      }
 
       const memberRows = allMemberIds.map((memberId) => ({
         conversation_id: conversation.id,
@@ -338,7 +396,9 @@ export async function POST(request: NextRequest) {
 
       const target = await getProfile(targetUserId);
 
-      if (!target) return reply({ error: "Member not found." }, 404);
+      if (!target) {
+        return reply({ error: "Member not found." }, 404);
+      }
 
       const allowed = await canManageMember(actor, target);
 
@@ -360,7 +420,9 @@ export async function POST(request: NextRequest) {
           { onConflict: "user_id" }
         );
 
-      if (error) return reply({ error: error.message }, 500);
+      if (error) {
+        return reply({ error: error.message }, 500);
+      }
 
       return reply({
         success: true,
