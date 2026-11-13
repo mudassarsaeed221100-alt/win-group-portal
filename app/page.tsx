@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -375,6 +376,7 @@ function Pager({ page, total, setPage }: { page: number; total: number; setPage:
     </div>
   );
 }
+
 
 /* ═══════ WORK TASKS ═══════ */
 
