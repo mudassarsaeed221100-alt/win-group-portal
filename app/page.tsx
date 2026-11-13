@@ -10,27 +10,57 @@ export default function Home() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
-    setLoading(false);
+      if (loginError || !data.user) {
+        setError(loginError?.message || "Login failed.");
+        return;
+      }
 
-    if (error) {
-      setError("Email ya password ghalat hai.");
-      return;
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+      if (profileError || !profile) {
+        setError("Account profile not found. Please contact Founder.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (profile.role === "founder_owner") {
+        router.replace("/founder");
+      } else if (profile.role === "super_admin") {
+        router.replace("/super-admin");
+      } else if (profile.role === "admin") {
+        router.replace("/admin");
+      } else if (profile.role === "staff") {
+        router.replace("/staff");
+      } else {
+        setError("Your account role is not authorized.");
+        await supabase.auth.signOut();
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/dashboard");
   }
 
   return (
@@ -65,19 +95,59 @@ export default function Home() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", padding: "12px", margin: "10px 0 20px" }}
+          style={{
+            width: "100%",
+            padding: "12px",
+            margin: "10px 0 20px",
+            boxSizing: "border-box"
+          }}
         />
 
         <label>Password</label>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", padding: "12px", margin: "10px 0 20px" }}
-        />
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        <div style={{
+          display: "flex",
+          border: "1px solid #aaa",
+          borderRadius: "6px",
+          margin: "10px 0 20px"
+        }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "12px",
+              border: "none",
+              outline: "none"
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              padding: "0 12px",
+              border: "none",
+              background: "white"
+            }}
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        {error && (
+          <p style={{
+            color: "red",
+            background: "#fff0f0",
+            padding: "10px",
+            overflowWrap: "anywhere"
+          }}>
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
@@ -88,7 +158,8 @@ export default function Home() {
             background: "#102b50",
             color: "white",
             border: "none",
-            borderRadius: "7px"
+            borderRadius: "7px",
+            cursor: "pointer"
           }}
         >
           {loading ? "Logging in..." : "Login"}
@@ -101,3 +172,4 @@ export default function Home() {
     </main>
   );
 }
+
