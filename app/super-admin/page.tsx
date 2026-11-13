@@ -34,37 +34,66 @@ export default function SuperAdminDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeMenu, setActiveMenu] = useState("Overview");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    const loadProfile = async () => {
+
+useEffect(() => {
+  let mounted = true;
+
+  const loadProfile = async () => {
+    try {
       const { data: authData, error: authError } =
         await supabase.auth.getUser();
 
-      if (authError || !authData.user) {
+      if (authError) throw authError;
+
+      if (!authData.user) {
         router.replace("/");
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
-        .select(
-          "id, first_name, surname, role, team_code, avatar_url"
-        )
+        .select("id, first_name, surname, role, team_code, avatar_url")
         .eq("id", authData.user.id)
         .single();
 
-      if (error || !data || data.role !== "super_admin") {
-        router.replace("/");
-        return;
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error("Profile record nahi mila.");
       }
 
-      setProfile(data);
-      setLoading(false);
-    };
+      if (data.role !== "super_admin") {
+        throw new Error(
+          `Account role "${data.role}" hai, jabke "super_admin" required hai.`
+        );
+      }
 
-    loadProfile();
-  }, [router]);
+      if (mounted) setProfile(data);
+    } catch (error) {
+      console.error("Super Admin loading error:", error);
+
+      if (mounted) {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Portal load nahi ho saka."
+        );
+      }
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  };
+
+  loadProfile();
+
+  return () => {
+    mounted = false;
+  };
+}, [router]);
+
 
   const logout = async () => {
     setLoggingOut(true);
@@ -108,7 +137,26 @@ export default function SuperAdminDashboard() {
       </div>
     );
   }
-
+  if (loadError) {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#090b10",
+      color: "white",
+      display: "grid",
+      placeItems: "center",
+      padding: 20
+    }}>
+      <div>
+        <h2>Portal Loading Error</h2>
+        <p>{loadError}</p>
+        <button onClick={() => window.location.reload()}>
+          Try Again
+        </button>
+      </div>
+    </div>
+  );
+}
   return (
     <div className="dashboard">
       <aside className="sidebar">
