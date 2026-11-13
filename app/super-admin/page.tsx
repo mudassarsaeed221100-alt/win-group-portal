@@ -1,6 +1,6 @@
 
 "use client";
-console.log("SUPER ADMIN PAGE NEW CODE LOADED");
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -21,10 +21,22 @@ const menuItems = [
   "Work Tasks",
   "Submissions",
   "Earnings",
+  "Staff Performance",
+  "Team Communication",
   "Notifications",
   "Profile",
   "Support",
 ];
+
+const moduleRoutes: Record<string, string> = {
+  "Team Management": "/super-admin/team-management",
+  "Create Staff": "/super-admin/create-staff",
+  "Work Tasks": "/super-admin/work-tasks",
+  Submissions: "/super-admin/submissions",
+  Earnings: "/super-admin/staff-earnings",
+  "Staff Performance": "/super-admin/staff-performance",
+  "Team Communication": "/super-admin/team-communication",
+};
 
 export default function SuperAdminPage() {
   const router = useRouter();
@@ -109,19 +121,27 @@ export default function SuperAdminPage() {
     };
   }, [router]);
 
- if (loading) {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#090d18",
-      color: "white",
-      padding: 40,
-      fontSize: 24
-    }}>
-      SUPER ADMIN PAGE RUNNING — LOADING CHECK
-    </div>
-  );
-}
+  const handleMenuClick = (item: string) => {
+    const route = moduleRoutes[item];
+
+    if (route) {
+      router.push(route);
+      return;
+    }
+
+    setActiveMenu(item);
+  };
+
+  if (loading) {
+    return (
+      <div style={styles.centerScreen}>
+        <div style={styles.loader}></div>
+        <p style={{ marginTop: 18 }}>
+          Super Admin Dashboard Loading...
+        </p>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (
@@ -129,12 +149,14 @@ export default function SuperAdminPage() {
         <div style={styles.errorBox}>
           <h2>Portal Loading Error</h2>
           <p>{loadError}</p>
+
           <button
             style={styles.primaryButton}
             onClick={() => window.location.reload()}
           >
             Try Again
           </button>
+
           <button
             style={styles.secondaryButton}
             onClick={() => router.replace("/")}
@@ -172,14 +194,17 @@ export default function SuperAdminPage() {
 
           <div style={styles.panel}>
             <h2>Welcome, {fullName}</h2>
+
             <p style={styles.muted}>
               WIN GROUP Super Admin Dashboard
             </p>
+
             <div style={styles.infoGrid}>
               <div>
                 <span style={styles.muted}>Team Code</span>
                 <h3>{profile.team_code || "Not Assigned"}</h3>
               </div>
+
               <div>
                 <span style={styles.muted}>Account Role</span>
                 <h3>Super Admin</h3>
@@ -189,17 +214,21 @@ export default function SuperAdminPage() {
 
           <div style={styles.panel}>
             <h2>Quick Actions</h2>
+
             <div style={styles.actionGrid}>
               {[
                 "Create Staff",
                 "Work Tasks",
                 "Submissions",
                 "Earnings",
+                "Staff Performance",
+                "Team Communication",
+                "Team Management",
               ].map((item) => (
                 <button
                   key={item}
                   style={styles.actionButton}
-                  onClick={() => setActiveMenu(item)}
+                  onClick={() => handleMenuClick(item)}
                 >
                   {item}
                 </button>
@@ -211,16 +240,6 @@ export default function SuperAdminPage() {
     }
 
     const descriptions: Record<string, string> = {
-      "Team Management":
-        "Apni Team Code ke staff members ko yahan manage karein.",
-      "Create Staff":
-        "Apni team ke liye naye Staff accounts create karein.",
-      "Work Tasks":
-        "Staff ko tasks assign aur manage karein.",
-      Submissions:
-        "Staff ki submitted work details aur progress dekhein.",
-      Earnings:
-        "Daily, weekly, monthly aur total earnings dekhein.",
       Notifications:
         "Team aur account ki important notifications.",
       Profile:
@@ -232,12 +251,14 @@ export default function SuperAdminPage() {
     return (
       <div style={styles.panel}>
         <h2>{activeMenu}</h2>
+
         <p style={styles.muted}>
           {descriptions[activeMenu] || "Dashboard section"}
         </p>
+
         <p style={styles.notice}>
-          Yeh section abhi tayyar kiya ja raha hai. Is mein existing
-          dashboard ke features aglay steps mein add honge.
+          Yeh section abhi tayyar kiya ja raha hai. Is ke features
+          aglay steps mein add honge.
         </p>
       </div>
     );
@@ -248,6 +269,7 @@ export default function SuperAdminPage() {
       <aside style={styles.sidebar}>
         <div style={styles.brand}>
           <div style={styles.logo}>W</div>
+
           <div>
             <h2>WIN GROUP</h2>
             <span>Management Portal</span>
@@ -266,6 +288,7 @@ export default function SuperAdminPage() {
               fullName.charAt(0).toUpperCase()
             )}
           </div>
+
           <div style={{ minWidth: 0 }}>
             <strong>{fullName}</strong>
             <span>Super Admin</span>
@@ -278,7 +301,7 @@ export default function SuperAdminPage() {
           {menuItems.map((item) => (
             <button
               key={item}
-              onClick={() => setActiveMenu(item)}
+              onClick={() => handleMenuClick(item)}
               style={{
                 ...styles.menuButton,
                 ...(activeMenu === item
@@ -308,6 +331,7 @@ export default function SuperAdminPage() {
             <h1>{activeMenu}</h1>
             <p>WIN GROUP Management System</p>
           </div>
+
           <div style={styles.topProfile}>
             <span>{fullName}</span>
             <span style={styles.roleBadge}>Super Admin</span>
@@ -335,6 +359,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     fontFamily: "Arial, sans-serif",
   },
+
   loader: {
     width: 38,
     height: 38,
@@ -343,6 +368,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
+
   errorBox: {
     maxWidth: 500,
     width: "100%",
@@ -351,6 +377,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 14,
     padding: 28,
   },
+
   primaryButton: {
     background: "#2563eb",
     color: "white",
@@ -360,6 +387,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     margin: 8,
   },
+
   secondaryButton: {
     background: "#273449",
     color: "white",
@@ -369,6 +397,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     margin: 8,
   },
+
   dashboard: {
     minHeight: "100vh",
     display: "flex",
@@ -376,8 +405,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#f8fafc",
     fontFamily: "Arial, sans-serif",
   },
+
   sidebar: {
-    width: 250,
+    width: 270,
     minWidth: 250,
     background: "#111827",
     borderRight: "1px solid #273449",
@@ -385,12 +415,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
   },
+
   brand: {
     display: "flex",
     alignItems: "center",
     gap: 12,
     marginBottom: 30,
   },
+
   logo: {
     width: 42,
     height: 42,
@@ -401,6 +433,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 23,
     fontWeight: 800,
   },
+
   userBox: {
     display: "flex",
     alignItems: "center",
@@ -410,6 +443,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 10,
     marginBottom: 25,
   },
+
   avatar: {
     width: 40,
     height: 40,
@@ -419,22 +453,27 @@ const styles: Record<string, React.CSSProperties> = {
     placeItems: "center",
     overflow: "hidden",
     fontWeight: 700,
+    flexShrink: 0,
   },
+
   avatarImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
   },
+
   menuHeading: {
     color: "#94a3b8",
     fontSize: 11,
     letterSpacing: 1,
   },
+
   navigation: {
     display: "flex",
     flexDirection: "column",
     gap: 7,
   },
+
   menuButton: {
     padding: "12px 14px",
     border: 0,
@@ -445,11 +484,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: 14,
   },
+
   activeMenuButton: {
     background: "#1d4ed8",
     color: "#ffffff",
     fontWeight: 700,
   },
+
   logoutButton: {
     marginTop: "auto",
     padding: 12,
@@ -459,10 +500,12 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     cursor: "pointer",
   },
+
   main: {
     flex: 1,
     minWidth: 0,
   },
+
   topbar: {
     minHeight: 85,
     padding: "18px 28px",
@@ -473,33 +516,39 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 15,
     flexWrap: "wrap",
   },
+
   topProfile: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
     gap: 5,
   },
+
   roleBadge: {
     color: "#7dd3fc",
     fontSize: 12,
   },
+
   content: {
     padding: 28,
     maxWidth: 1300,
     margin: "0 auto",
   },
+
   statsGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
     gap: 16,
     marginBottom: 22,
   },
+
   statCard: {
     background: "#151f32",
     border: "1px solid #273449",
     borderRadius: 12,
     padding: 20,
   },
+
   panel: {
     background: "#151f32",
     border: "1px solid #273449",
@@ -507,21 +556,25 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 24,
     marginBottom: 20,
   },
+
   muted: {
     color: "#94a3b8",
   },
+
   infoGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
     gap: 20,
     marginTop: 25,
   },
+
   actionGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
     gap: 12,
     marginTop: 18,
   },
+
   actionButton: {
     padding: 16,
     border: "1px solid #334155",
@@ -530,6 +583,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 9,
     cursor: "pointer",
   },
+
   notice: {
     marginTop: 20,
     padding: 15,
