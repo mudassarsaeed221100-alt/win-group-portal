@@ -304,7 +304,7 @@ export default function TeamCommunicationPage() {
       setShowCreate(false);
       setChatTitle("");
       setSelectedUsers([]);
-      setSelectedTeam([]);
+      setSelectedTeam("");
       setNotice("Chat successfully create ho gayi.");
     } catch (error: any) {
       setNotice(error.message);
