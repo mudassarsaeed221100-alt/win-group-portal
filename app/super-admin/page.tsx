@@ -1,6 +1,6 @@
 
 "use client";
-
+console.log("SUPER ADMIN PAGE NEW CODE LOADED");
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -109,15 +109,19 @@ export default function SuperAdminPage() {
     };
   }, [router]);
 
-  if (loading) {
-    return (
-      <div style={styles.centerScreen}>
-        <div style={styles.loader}></div>
-        <h2>Loading Super Admin Portal...</h2>
-        <p>Please wait while your dashboard loads.</p>
-      </div>
-    );
-  }
+ if (loading) {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#090d18",
+      color: "white",
+      padding: 40,
+      fontSize: 24
+    }}>
+      SUPER ADMIN PAGE RUNNING — LOADING CHECK
+    </div>
+  );
+}
 
   if (loadError) {
     return (
