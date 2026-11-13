@@ -50,7 +50,7 @@ async function canManageMember(actor: any, target: any) {
   return false;
 }
 
-// GET: Apni chats, members, messages aur permissions hasil karein.
+// GET: Chats, team members, messages aur permissions
 export async function GET(request: NextRequest) {
   try {
     const user = await getUser(request);
@@ -63,6 +63,35 @@ export async function GET(request: NextRequest) {
 
     if (!profile) {
       return reply({ error: "Profile not found." }, 404);
+    }
+
+    // Available members
+    let availableMembersQuery = supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, surname, username, role, team_code");
+
+    if (profile.role === "founder_owner") {
+      availableMembersQuery = availableMembersQuery.in(
+        "role",
+        ["super_admin", "admin", "staff"]
+      );
+    } else if (profile.role === "super_admin") {
+      availableMembersQuery = availableMembersQuery
+        .eq("team_code", profile.team_code)
+        .in("role", ["admin", "staff"]);
+    } else if (profile.role === "admin") {
+      availableMembersQuery = availableMembersQuery
+        .eq("team_code", profile.team_code)
+        .eq("role", "staff");
+    } else {
+      availableMembersQuery = availableMembersQuery.eq("id", user.id);
+    }
+
+    const { data: availableMembers, error: availableError } =
+      await availableMembersQuery.order("first_name");
+
+    if (availableError) {
+      return reply({ error: availableError.message }, 500);
     }
 
     const { data: memberships, error: memberError } =
@@ -88,6 +117,7 @@ export async function GET(request: NextRequest) {
         profiles: [],
         messages: [],
         permissions: [],
+        availableMembers: availableMembers || [],
       });
     }
 
@@ -163,13 +193,14 @@ export async function GET(request: NextRequest) {
       profiles,
       messages: messages || [],
       permissions,
+      availableMembers: availableMembers || [],
     });
   } catch (error: any) {
     return reply({ error: error.message || "Server error." }, 500);
   }
 }
 
-// POST: Chat create, message send aur Chat ON/OFF.
+// POST: Chat create, message send aur Chat ON/OFF
 export async function POST(request: NextRequest) {
   try {
     const user = await getUser(request);
@@ -249,7 +280,6 @@ export async function POST(request: NextRequest) {
       const conversationType = body.conversationType;
       const title = String(body.title || "").trim() || null;
 
-      // TypeScript error fixed here
       const rawUserIds: unknown[] = Array.isArray(body.userIds)
         ? body.userIds
         : [];
@@ -340,6 +370,33 @@ export async function POST(request: NextRequest) {
           return reply({
             error: "You can only create chats with your own team members.",
           }, 403);
+        }
+
+        if (actor.role === "admin") {
+          const invalidRole = selectedProfiles.some(
+            (person) =>
+              person.id !== user.id && person.role !== "staff"
+          );
+
+          if (invalidRole) {
+            return reply({
+              error: "Admin can only create chats with Staff members.",
+            }, 403);
+          }
+        }
+
+        if (actor.role === "super_admin") {
+          const invalidRole = selectedProfiles.some(
+            (person) =>
+              person.id !== user.id &&
+              !["admin", "staff"].includes(person.role)
+          );
+
+          if (invalidRole) {
+            return reply({
+              error: "You can only chat with Admin and Staff members.",
+            }, 403);
+          }
         }
       }
 
