@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const { data: profile, error: profileError } =
       await supabaseAdmin
         .from("profiles")
-        .select("role")
+        .select("role, team_code")
         .eq("id", user.id)
         .single();
 
@@ -53,12 +53,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data: staff, error: staffError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("id, username, role, created_at")
-        .eq("role", "staff")
-        .order("created_at", { ascending: false });
+    let query = supabaseAdmin
+      .from("profiles")
+      .select("id, username, first_name, surname, role, team_code, created_at")
+      .eq("role", "staff")
+      .order("created_at", { ascending: false });
+
+    // Founder tamam Staff dekh sakta hai.
+    // Super Admin aur Admin sirf apni team ke Staff dekhenge.
+    if (profile.role !== "founder_owner") {
+      if (!profile.team_code) {
+        return NextResponse.json(
+          { error: "Your Team Code is missing." },
+          { status: 403 }
+        );
+      }
+
+      query = query.eq("team_code", profile.team_code);
+    }
+
+    const { data: staff, error: staffError } = await query;
 
     if (staffError) {
       return NextResponse.json(
@@ -80,6 +94,8 @@ export async function GET(request: NextRequest) {
 
 // POST: New account create karna
 export async function POST(request: NextRequest) {
+  let createdUserId: string | null = null;
+
   try {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.startsWith("Bearer ")
@@ -108,7 +124,7 @@ export async function POST(request: NextRequest) {
     const { data: profile, error: profileError } =
       await supabaseAdmin
         .from("profiles")
-        .select("role")
+        .select("role, team_code")
         .eq("id", user.id)
         .single();
 
@@ -120,7 +136,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, password, username, role } = body;
+
+    const {
+      email,
+      password,
+      username,
+      role,
+      first_name,
+      surname,
+      phone,
+      team_code,
+    } = body;
 
     const permittedRoles = rolePermissions[profile.role];
 
@@ -144,6 +170,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Super Admin aur Admin apni team mein hi Staff bana sakte hain.
+    let assignedTeamCode: string | null = null;
+
+    if (profile.role === "founder_owner") {
+      assignedTeamCode =
+        typeof team_code === "string" && team_code.trim()
+          ? team_code.trim()
+          : null;
+    } else {
+      if (!profile.team_code) {
+        return NextResponse.json(
+          { error: "Your Team Code is missing." },
+          { status: 403 }
+        );
+      }
+
+      assignedTeamCode = profile.team_code;
+    }
+
     const { data: created, error: createError } =
       await supabaseAdmin.auth.admin.createUser({
         email: email.trim(),
@@ -158,16 +203,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    createdUserId = created.user.id;
+
+    const profileData: Record<string, any> = {
+      id: created.user.id,
+      username: username.trim(),
+      role,
+      team_code: assignedTeamCode,
+    };
+
+    if (typeof first_name === "string") {
+      profileData.first_name = first_name.trim();
+    }
+
+    if (typeof surname === "string") {
+      profileData.surname = surname.trim();
+    }
+
+    if (typeof phone === "string") {
+      profileData.phone = phone.trim();
+    }
+
     const { error: insertError } = await supabaseAdmin
       .from("profiles")
-      .insert({
-        id: created.user.id,
-        username: username.trim(),
-        role,
-      });
+      .insert(profileData);
 
     if (insertError) {
       await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      createdUserId = null;
 
       return NextResponse.json(
         { error: insertError.message },
@@ -180,10 +243,13 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch {
+    if (createdUserId) {
+      await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+    }
+
     return NextResponse.json(
       { error: "Server error. Please try again." },
       { status: 500 }
     );
   }
 }
-
