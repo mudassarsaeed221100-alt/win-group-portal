@@ -1,225 +1,107 @@
-
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { supabaseAdmin } from "../../../../lib/supabase-admin";
 
-const rolePermissions: Record<string, string[]> = {
-  founder_owner: ["super_admin", "admin", "staff"],
-  super_admin: ["admin", "staff"],
-  admin: ["staff"],
-};
+async function getCaller(req: NextRequest) {
+  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return { error: "Token missing hai.", status: 401 };
 
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+  const { data: userData, error: userErr } =
+    await supabaseAdmin.auth.getUser(token);
+  if (userErr || !userData.user)
+    return { error: "Session invalid hai. Dobara login karein.", status: 401 };
 
-  if (!token) {
-    return { error: "Login required.", status: 401 as const };
-  }
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (authError || !user) {
-    return { error: "Invalid login session.", status: 401 as const };
-  }
-
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, role, team_code")
-    .eq("id", user.id)
+    .eq("id", userData.user.id)
     .single();
 
-  if (profileError || !profile) {
-    return { error: "Account profile not found.", status: 403 as const };
-  }
+  if (!profile) return { error: "Profile nahi mili.", status: 403 };
+  if (!["super_admin", "admin"].includes(profile.role))
+    return { error: "Aapko ye permission nahi hai.", status: 403 };
 
-  if (!rolePermissions[profile.role]) {
-    return { error: "You are not authorized.", status: 403 as const };
-  }
-
-  return { user, profile };
+  return { profile };
 }
 
-// GET: Apni team ke Staff ki list
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await authenticate(request);
+// Staff ki list
+export async function GET(req: NextRequest) {
+  const caller = await getCaller(req);
+  if (!caller.profile)
+    return NextResponse.json({ error: caller.error }, { status: caller.status });
 
-    if ("error" in auth) {
-      return NextResponse.json(
-        { error: auth.error },
-        { status: auth.status }
-      );
-    }
+  let query = supabaseAdmin
+    .from("profiles")
+    .select("id, username, first_name, surname, role, team_code, created_at")
+    .eq("role", "staff")
+    .order("created_at", { ascending: false });
 
-    const { profile } = auth;
-
-    let query = supabaseAdmin
-      .from("profiles")
-      .select(
-        "id, username, first_name, surname, role, team_code, created_at"
-      )
-      .eq("role", "staff")
-      .order("created_at", { ascending: false });
-
-    if (profile.role !== "founder_owner") {
-      if (!profile.team_code) {
-        return NextResponse.json(
-          { error: "Your Team Code is missing." },
-          { status: 403 }
-        );
-      }
-
-      query = query.eq("team_code", profile.team_code);
-    }
-
-    const { data: staff, error } = await query;
-
-    if (error) {
-      return NextResponse.json(
-        { error: "Unable to load Staff accounts." },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ staff: staff || [] });
-  } catch {
-    return NextResponse.json(
-      { error: "Server error. Please try again." },
-      { status: 500 }
-    );
+  if (caller.profile.role !== "super_admin") {
+    query = query.eq("team_code", caller.profile.team_code);
   }
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ staff: data ?? [] });
 }
 
-// POST: Account create karna
-export async function POST(request: NextRequest) {
-  let createdUserId: string | null = null;
+// Naya staff banana
+export async function POST(req: NextRequest) {
+  const caller = await getCaller(req);
+  if (!caller.profile)
+    return NextResponse.json({ error: caller.error }, { status: caller.status });
 
-  try {
-    const auth = await authenticate(request);
+  const body = await req.json().catch(() => ({}));
 
-    if ("error" in auth) {
-      return NextResponse.json(
-        { error: auth.error },
-        { status: auth.status }
-      );
-    }
+  const first_name = String(body.first_name ?? "").trim();
+  const surname = String(body.surname ?? "").trim();
+  const username = String(body.username ?? "").trim().toLowerCase();
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const phone = String(body.phone ?? "").trim() || null;
+  const pass = String(body.password ?? "");
 
-    const { profile } = auth;
-    const body = await request.json();
+  if (!first_name || !surname || !username || !email || !pass)
+    return NextResponse.json({ error: "Tamam fields bharein." }, { status: 400 });
+  if (pass.length < 8)
+    return NextResponse.json({ error: "Password kam az kam 8 characters ka ho." }, { status: 400 });
 
-    const {
+  const { data: existing } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .maybeSingle();
+  if (existing)
+    return NextResponse.json({ error: "Ye username pehle se maujood hai." }, { status: 409 });
+
+  const { data: created, error: createErr } =
+    await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
-      username,
-      role,
-      first_name,
-      surname,
-      phone,
-      team_code,
-    } = body;
+      password: pass,
+      email_confirm: true,
+    });
 
-    const permittedRoles = rolePermissions[profile.role];
-
-    if (
-      !permittedRoles.includes(role) ||
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      typeof username !== "string" ||
-      !email.trim() ||
-      !username.trim() ||
-      password.length < 8
-    ) {
-      return NextResponse.json(
-        { error: "Invalid details or account creation permission denied." },
-        { status: 400 }
-      );
-    }
-
-    let assignedTeamCode: string | null = null;
-
-    if (profile.role === "founder_owner") {
-      assignedTeamCode =
-        typeof team_code === "string" && team_code.trim()
-          ? team_code.trim()
-          : null;
-    } else {
-      if (!profile.team_code) {
-        return NextResponse.json(
-          { error: "Your Team Code is missing." },
-          { status: 403 }
-        );
-      }
-
-      // Super Admin aur Admin ka apna Team Code hi assign hoga.
-      assignedTeamCode = profile.team_code;
-    }
-
-    const { data: created, error: createError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: email.trim(),
-        password,
-        email_confirm: true,
-      });
-
-    if (createError || !created.user) {
-      return NextResponse.json(
-        { error: createError?.message || "Account creation failed." },
-        { status: 400 }
-      );
-    }
-
-    createdUserId = created.user.id;
-
-    const profileData: Record<string, unknown> = {
-      id: created.user.id,
-      username: username.trim(),
-      role,
-      team_code: assignedTeamCode,
-    };
-
-    if (typeof first_name === "string") {
-      profileData.first_name = first_name.trim();
-    }
-
-    if (typeof surname === "string") {
-      profileData.surname = surname.trim();
-    }
-
-    if (typeof phone === "string") {
-      profileData.phone = phone.trim();
-    }
-
-    const { error: insertError } = await supabaseAdmin
-      .from("profiles")
-      .insert(profileData);
-
-    if (insertError) {
-      await supabaseAdmin.auth.admin.deleteUser(created.user.id);
-      createdUserId = null;
-
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 400 }
-      );
-    }
-
+  if (createErr || !created.user)
     return NextResponse.json(
-      { message: "Account created successfully." },
-      { status: 201 }
+      { error: createErr?.message || "User create nahi hua." },
+      { status: 400 }
     );
-  } catch {
-    if (createdUserId) {
-      await supabaseAdmin.auth.admin.deleteUser(createdUserId);
-    }
 
-    return NextResponse.json(
-      { error: "Server error. Please try again." },
-      { status: 500 }
-    );
+  const { error: profileErr } = await supabaseAdmin.from("profiles").insert({
+    id: created.user.id,
+    username,
+    first_name,
+    surname,
+    email,
+    phone,
+    role: "staff",
+    team_code: caller.profile.team_code,
+    created_by: caller.profile.id,
+  });
+
+  if (profileErr) {
+    await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+    return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
+
+  return NextResponse.json({ message: "Staff ban gaya" }, { status: 201 });
 }
