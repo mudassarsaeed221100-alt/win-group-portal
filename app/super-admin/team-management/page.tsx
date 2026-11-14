@@ -145,3 +145,63 @@ export default function TeamManagementPage() {
             {filteredMembers.map((member) => {
               const name =
                 `${member.first_name || ""} ${member.surname || ""}`.trim() ||
+                "Unnamed Member";
+
+              return (
+                <div key={member.id} style={styles.member}>
+                  <div style={styles.memberInfo}>
+                    <div style={styles.avatar}>
+                      {member.avatar_url ? (
+                        <img src={member.avatar_url} alt={name} style={styles.avatarImage} />
+                      ) : (
+                        name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <strong>{name}</strong>
+                      <p>{member.team_code || "No Team Code"}</p>
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      ...styles.role,
+                      ...(member.role === "admin" ? styles.adminRole : styles.staffRole),
+                    }}
+                  >
+                    {member.role === "admin" ? "Admin" : "Staff"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  page: { minHeight: "100vh", background: "#0b1020", color: "#f8fafc", padding: 25, fontFamily: "Arial, sans-serif" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 15, marginBottom: 25 },
+  heading: { margin: 0, fontSize: 28 },
+  subtitle: { color: "#94a3b8", fontSize: 14 },
+  refreshButton: { padding: "11px 20px", background: "#2563eb", color: "white", border: 0, borderRadius: 8, cursor: "pointer" },
+  teamCodeBox: { background: "#17243a", border: "1px solid #334155", padding: 20, borderRadius: 12, marginBottom: 20 },
+  stats: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 15, marginBottom: 22 },
+  statCard: { background: "#151f32", border: "1px solid #273449", borderRadius: 12, padding: 20 },
+  panel: { background: "#151f32", border: "1px solid #273449", borderRadius: 12, padding: 20 },
+  listHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 15, marginBottom: 20 },
+  search: { padding: 12, borderRadius: 8, border: "1px solid #475569", background: "#0b1020", color: "white", width: "100%", maxWidth: 260 },
+  memberList: { display: "flex", flexDirection: "column", gap: 10 },
+  member: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "#1e293b", padding: 14, borderRadius: 9 },
+  memberInfo: { display: "flex", alignItems: "center", gap: 12 },
+  avatar: { width: 42, height: 42, borderRadius: "50%", background: "#334155", display: "grid", placeItems: "center", overflow: "hidden", fontWeight: 700 },
+  avatarImage: { width: "100%", height: "100%", objectFit: "cover" },
+  role: { padding: "6px 13px", borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  adminRole: { background: "#1e3a8a", color: "#bfdbfe" },
+  staffRole: { background: "#14532d", color: "#bbf7d0" },
+  message: { color: "#94a3b8", padding: 20, textAlign: "center" },
+  error: { background: "#451a1a", color: "#fecaca", padding: 15, borderRadius: 8, marginBottom: 15 },
+  retryButton: { marginLeft: 12, padding: 7, cursor: "pointer" },
+};
