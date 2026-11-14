@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -104,7 +103,8 @@ export default function Dashboard() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const displayName = `${firstName} ${surname}`.trim() || "Founder";
+
+  const displayName = (firstName + " " + surname).trim() || "Founder";
 
   useEffect(() => {
     async function loadProfile() {
@@ -151,11 +151,7 @@ export default function Dashboard() {
 
   function ProfileAvatar({ className }: { className: string }) {
     const dimensions =
-      className === "avatar"
-        ? 43
-        : className === "top-avatar"
-        ? 36
-        : 38;
+      className === "avatar" ? 43 : className === "top-avatar" ? 36 : 38;
 
     return (
       <div
@@ -163,13 +159,13 @@ export default function Dashboard() {
         style={{
           position: "relative",
           display: "block",
-          width: `${dimensions}px`,
-          height: `${dimensions}px`,
-          minWidth: `${dimensions}px`,
-          minHeight: `${dimensions}px`,
-          maxWidth: `${dimensions}px`,
-          maxHeight: `${dimensions}px`,
-          flex: `0 0 ${dimensions}px`,
+          width: dimensions + "px",
+          height: dimensions + "px",
+          minWidth: dimensions + "px",
+          minHeight: dimensions + "px",
+          maxWidth: dimensions + "px",
+          maxHeight: dimensions + "px",
+          flex: "0 0 " + dimensions + "px",
           overflow: "hidden",
           borderRadius: "50%",
           border: "2px solid white",
@@ -180,7 +176,7 @@ export default function Dashboard() {
           color: "#101010",
           fontWeight: "bold",
           fontSize: className === "avatar" ? "20px" : "15px",
-          lineHeight: `${dimensions - 4}px`,
+          lineHeight: dimensions - 4 + "px",
           textAlign: "center",
           isolation: "isolate",
         }}
@@ -196,16 +192,9 @@ export default function Dashboard() {
               display: "block",
               width: "100%",
               height: "100%",
-              minWidth: "100%",
-              maxWidth: "100%",
-              minHeight: "100%",
-              maxHeight: "100%",
               objectFit: "cover",
               objectPosition: "center",
               borderRadius: "50%",
-              padding: 0,
-              margin: 0,
-              boxSizing: "border-box",
             }}
           />
         ) : (
@@ -232,19 +221,9 @@ export default function Dashboard() {
             justify-content: center;
             font-family: Arial, sans-serif;
           }
-          .loading-diamond {
-            color: #dedede;
-            font-size: 42px;
-            margin-bottom: 12px;
-          }
-          h2 {
-            letter-spacing: 5px;
-            margin: 0;
-          }
-          p {
-            color: #888;
-            font-size: 13px;
-          }
+          .loading-diamond { color: #dedede; font-size: 42px; margin-bottom: 12px; }
+          h2 { letter-spacing: 5px; margin: 0; }
+          p { color: #888; font-size: 13px; }
         `}</style>
       </main>
     );
@@ -288,25 +267,19 @@ export default function Dashboard() {
             >
               <span className="menu-icon">{menuIcons[item]}</span>
               <span>{item}</span>
-              {activeMenu === item && (
-                <span className="active-mark">◆</span>
-              )}
+              {activeMenu === item && <span className="active-mark">◆</span>}
             </button>
           ))}
         </nav>
 
         <div className="profile-settings-menu">
           <button
-            className={
-              profileItems.includes(activeMenu) ? "menu active" : "menu"
-            }
+            className={profileItems.includes(activeMenu) ? "menu active" : "menu"}
             onClick={() => setProfileSettingsOpen(!profileSettingsOpen)}
           >
             <span className="menu-icon">⚙</span>
             <span>Profile Settings</span>
-            <span className="folder-arrow">
-              {profileSettingsOpen ? "−" : "+"}
-            </span>
+            <span className="folder-arrow">{profileSettingsOpen ? "−" : "+"}</span>
           </button>
 
           {profileSettingsOpen && (
@@ -318,9 +291,7 @@ export default function Dashboard() {
                   onClick={() => openProfilePage(item)}
                 >
                   <span>{item}</span>
-                  {activeMenu === item && (
-                    <span className="active-mark">◆</span>
-                  )}
+                  {activeMenu === item && <span className="active-mark">◆</span>}
                 </button>
               ))}
             </div>
@@ -357,10 +328,10 @@ export default function Dashboard() {
 
           <div className="top-profile-area">
             <div className="top-profile">
-                            <button
+              <button
+                className="refresh-btn"
                 onClick={() => setRefreshKey(refreshKey + 1)}
                 title="Page Refresh"
-                style={{ background: "#1c1c1c", color: "#e9e9e9", border: "1px solid #444", borderRadius: "7px", padding: "8px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", marginRight: "8px" }}
               >
                 ↻ Refresh
               </button>
@@ -377,9 +348,7 @@ export default function Dashboard() {
                   <strong>{displayName}</strong>
                   <small>Founder / Owner</small>
                 </div>
-                <span className="dropdown-arrow">
-                  {profileMenuOpen ? "▲" : "▼"}
-                </span>
+                <span className="dropdown-arrow">{profileMenuOpen ? "▲" : "▼"}</span>
               </button>
             </div>
 
@@ -411,239 +380,204 @@ export default function Dashboard() {
             )}
           </div>
         </header>
+
         <div key={refreshKey}>
-        {activeMenu === "Profile Edit" ? (
-           </div>
-        )}
-        </div>
-      </section>
-          <ProfileSettings />
-        ) : activeMenu === "User Management" ? (
-          <UserManagement />
-        ) : activeMenu === "Departments" ? (
-          <Departments />
-        ) : activeMenu === "Business Records" ? (
-          <BusinessRecords />
-        ) : activeMenu === "Reports" ? (
-          <Reports />
-        ) : activeMenu === "Activity Logs" ? (
-          <ActivityLogs />
-        ) : activeMenu === "Security" ? (
-          <Security />
-        ) : activeMenu === "System Settings" ? (
-          <SystemSettings />
-        ) : activeMenu === "Notifications" ? (
-          <Notifications />
-        ) : activeMenu === "Flexible Work" ? (
-          <FlexibleWork />
-        ) : activeMenu === "Earnings Ledger" ? (
-          <EarningsLedger />
-        ) : activeMenu === "Support Management" ? (
-          <FounderSupport />
-        ) : activeMenu === "Team Overview" ? (
-          <TeamOverview />
-        ) : activeMenu === "Team Hierarchy" ? (
-          <TeamHierarchy />
-        ) : activeMenu === "Referral Network" ? (
-          <ReferralNetwork />
-        ) : activeMenu === "Super Admin Management" ? (
-          <SuperAdminManagement />
-        ) : activeMenu === "Team Performance" ? (
-          <TeamPerformance />
-        ) : activeMenu === "Company-wide Members" ? (
-          <CompanyMembers />
-        ) : activeMenu === "Product Management" ? (
-          <ProductManagement />
-        ) : activeMenu === "Product Sales & Orders" ? (
-          <ProductSalesOrders />
-        ) : activeMenu === "Payment Verification" ? (
-          <PaymentVerification />
-        ) : activeMenu === "Product Delivery" ? (
-          <ProductDelivery />
-        ) : activeMenu === "Commission & Bonus Management" ? (
-          <CommissionBonusManagement />
-        ) : activeMenu === "Second Founder Management" ? (
-          <SecondFounderManagement />
-        ) : activeMenu === "Overview" ? (
-          <>
-            <div className="welcome">
-              <div className="welcome-content">
-                <div className="welcome-label">
-                  ◆ &nbsp; FOUNDER CONTROL CENTER
+          {activeMenu === "Profile Edit" ? (
+            <ProfileSettings />
+          ) : activeMenu === "User Management" ? (
+            <UserManagement />
+          ) : activeMenu === "Departments" ? (
+            <Departments />
+          ) : activeMenu === "Business Records" ? (
+            <BusinessRecords />
+          ) : activeMenu === "Reports" ? (
+            <Reports />
+          ) : activeMenu === "Activity Logs" ? (
+            <ActivityLogs />
+          ) : activeMenu === "Security" ? (
+            <Security />
+          ) : activeMenu === "System Settings" ? (
+            <SystemSettings />
+          ) : activeMenu === "Notifications" ? (
+            <Notifications />
+          ) : activeMenu === "Flexible Work" ? (
+            <FlexibleWork />
+          ) : activeMenu === "Earnings Ledger" ? (
+            <EarningsLedger />
+          ) : activeMenu === "Support Management" ? (
+            <FounderSupport />
+          ) : activeMenu === "Team Overview" ? (
+            <TeamOverview />
+          ) : activeMenu === "Team Hierarchy" ? (
+            <TeamHierarchy />
+          ) : activeMenu === "Referral Network" ? (
+            <ReferralNetwork />
+          ) : activeMenu === "Super Admin Management" ? (
+            <SuperAdminManagement />
+          ) : activeMenu === "Team Performance" ? (
+            <TeamPerformance />
+          ) : activeMenu === "Company-wide Members" ? (
+            <CompanyMembers />
+          ) : activeMenu === "Product Management" ? (
+            <ProductManagement />
+          ) : activeMenu === "Product Sales & Orders" ? (
+            <ProductSalesOrders />
+          ) : activeMenu === "Payment Verification" ? (
+            <PaymentVerification />
+          ) : activeMenu === "Product Delivery" ? (
+            <ProductDelivery />
+          ) : activeMenu === "Commission & Bonus Management" ? (
+            <CommissionBonusManagement />
+          ) : activeMenu === "Second Founder Management" ? (
+            <SecondFounderManagement />
+          ) : activeMenu === "Overview" ? (
+            <>
+              <div className="welcome">
+                <div className="welcome-content">
+                  <div className="welcome-label">◆ &nbsp; FOUNDER CONTROL CENTER</div>
+                  <h2>Welcome, {displayName}</h2>
+                  <p>
+                    Your organization. Your authority. Manage the entire WIN GROUP
+                    system from one secure control center.
+                  </p>
+                  <div className="welcome-tag">FOUNDER / OWNER</div>
                 </div>
-                <h2>Welcome, {displayName}</h2>
-                <p>
-                  Your organization. Your authority. Manage the entire WIN GROUP
-                  system from one secure control center.
-                </p>
-                <div className="welcome-tag">FOUNDER / OWNER</div>
-              </div>
-              <div className="welcome-emblem">
-                <div className="emblem-outer">
-                  <div className="emblem-inner">◆</div>
-                </div>
-                <span>WIN GROUP</span>
-                <small>EST. MANAGEMENT</small>
-              </div>
-            </div>
-
-            <div className="section-title">
-              <div>
-                <span>ORGANIZATION</span>
-                <h3>Company Overview</h3>
-              </div>
-              <div className="overview-status">
-                <i /> Portal Connected
-              </div>
-            </div>
-
-            <div className="stats">
-              {[
-                ["Total Users", "0", "Registered accounts", "◈"],
-                ["Departments", "0", "Company departments", "▦"],
-                ["Business Records", "0", "Company records", "▤"],
-                ["System Status", "Active", "Portal connected", "◇"],
-              ].map(([label, value, note, symbol]) => (
-                <div className="stat-card" key={label}>
-                  <div className="stat-top">
-                    <span>{label}</span>
-                    <div className="stat-icon">{symbol}</div>
+                <div className="welcome-emblem">
+                  <div className="emblem-outer">
+                    <div className="emblem-inner">◆</div>
                   </div>
-                  <h2 className={value === "Active" ? "online-text" : ""}>
-                    {value}
-                  </h2>
-                  <small>{note}</small>
+                  <span>WIN GROUP</span>
+                  <small>EST. MANAGEMENT</small>
                 </div>
-              ))}
-            </div>
-
-            <div className="section-title structure-title">
-              <div>
-                <span>COMPANY HIERARCHY</span>
-                <h3>Management Structure</h3>
               </div>
-            </div>
 
-            <div className="panel">
-              <div className="hierarchy">
+              <div className="section-title">
+                <div>
+                  <span>ORGANIZATION</span>
+                  <h3>Company Overview</h3>
+                </div>
+                <div className="overview-status">
+                  <i /> Portal Connected
+                </div>
+              </div>
+
+              <div className="stats">
                 {[
-                  ["◆", "Founder / Owner", "Ultimate System Authority"],
-                  ["◈", "Super Admin", "Manages Own Team"],
-                  ["◇", "Admin", "Manages Assigned Team"],
-                  ["○", "Staff", "Performs Assigned Work"],
-                ].map(([symbol, title, note], index) => (
-                  <div key={title}>
-                    <div className={index === 0 ? "level founder" : "level"}>
-                      <span className="level-symbol">{symbol}</span>
-                      <div>
-                        <strong>{title}</strong>
-                        <small>{note}</small>
-                      </div>
-                      {index === 0 && (
-                        <span className="level-access">FULL ACCESS</span>
-                      )}
+                  ["Total Users", "0", "Registered accounts", "◈"],
+                  ["Departments", "0", "Company departments", "▦"],
+                  ["Business Records", "0", "Company records", "▤"],
+                  ["System Status", "Active", "Portal connected", "◇"],
+                ].map(([label, value, note, symbol]) => (
+                  <div className="stat-card" key={label}>
+                    <div className="stat-top">
+                      <span>{label}</span>
+                      <div className="stat-icon">{symbol}</div>
                     </div>
-                    {index !== 3 && <div className="hierarchy-line" />}
+                    <h2 className={value === "Active" ? "online-text" : ""}>{value}</h2>
+                    <small>{note}</small>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div className="section-title">
-              <div>
-                <span>OWNER PRIVILEGES</span>
-                <h3>Founder Authority</h3>
-              </div>
-            </div>
-
-            <div className="panel authority-panel">
-              <div className="authority-heading">
-                <div className="authority-large">◆</div>
+              <div className="section-title structure-title">
                 <div>
-                  <h3>Complete Organization Control</h3>
-                  <p>
-                    Founder / Owner has final authority over all teams, accounts
-                    and company operations.
-                  </p>
+                  <span>COMPANY HIERARCHY</span>
+                  <h3>Management Structure</h3>
                 </div>
               </div>
-              <div className="authority-grid">
-                <div>◆ &nbsp; Manage all teams</div>
-                <div>◆ &nbsp; Control user permissions</div>
-                <div>◆ &nbsp; Approve sensitive actions</div>
-                <div>◆ &nbsp; Manage payments</div>
-                <div>◆ &nbsp; Monitor company reports</div>
-                <div>◆ &nbsp; Control system security</div>
+
+              <div className="panel">
+                <div className="hierarchy">
+                  {[
+                    ["◆", "Founder / Owner", "Ultimate System Authority"],
+                    ["◈", "Super Admin", "Manages Own Team"],
+                    ["◇", "Admin", "Manages Assigned Team"],
+                    ["○", "Staff", "Performs Assigned Work"],
+                  ].map(([symbol, title, note], index) => (
+                    <div key={title}>
+                      <div className={index === 0 ? "level founder" : "level"}>
+                        <span className="level-symbol">{symbol}</span>
+                        <div>
+                          <strong>{title}</strong>
+                          <small>{note}</small>
+                        </div>
+                        {index === 0 && <span className="level-access">FULL ACCESS</span>}
+                      </div>
+                      {index !== 3 && <div className="hierarchy-line" />}
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              <div className="section-title">
+                <div>
+                  <span>OWNER PRIVILEGES</span>
+                  <h3>Founder Authority</h3>
+                </div>
+              </div>
+
+              <div className="panel authority-panel">
+                <div className="authority-heading">
+                  <div className="authority-large">◆</div>
+                  <div>
+                    <h3>Complete Organization Control</h3>
+                    <p>
+                      Founder / Owner has final authority over all teams, accounts
+                      and company operations.
+                    </p>
+                  </div>
+                </div>
+                <div className="authority-grid">
+                  <div>◆ &nbsp; Manage all teams</div>
+                  <div>◆ &nbsp; Control user permissions</div>
+                  <div>◆ &nbsp; Approve sensitive actions</div>
+                  <div>◆ &nbsp; Manage payments</div>
+                  <div>◆ &nbsp; Monitor company reports</div>
+                  <div>◆ &nbsp; Control system security</div>
+                </div>
+              </div>
+            </>
+          ) : profileItems.includes(activeMenu) ? (
+            <div className="panel coming">
+              <div className="coming-icon">◆</div>
+              <span>FOUNDER PROFILE SETTINGS</span>
+              <h2>{activeMenu}</h2>
+              <p>
+                This setting will be connected with secure verification in the
+                next development step.
+              </p>
+              <small>Founder / Owner Full Access</small>
             </div>
-          </>
-        ) : profileItems.includes(activeMenu) ? (
-          <div className="panel coming">
-            <div className="coming-icon">◆</div>
-            <span>FOUNDER PROFILE SETTINGS</span>
-            <h2>{activeMenu}</h2>
-            <p>
-              This setting will be connected with secure verification in the
-              next development step.
-            </p>
-            <small>Founder / Owner Full Access</small>
-          </div>
-        ) : (
-          <div className="panel coming">
-            <div className="coming-icon">◆</div>
-            <span>FOUNDER MODULE</span>
-            <h2>{activeMenu}</h2>
-            <p>
-              This section will be developed and connected to the database in
-              the next development steps.
-            </p>
-            <small>Founder / Owner Full Access</small>
-          </div>
-        )}
+          ) : (
+            <div className="panel coming">
+              <div className="coming-icon">◆</div>
+              <span>FOUNDER MODULE</span>
+              <h2>{activeMenu}</h2>
+              <p>
+                This section will be developed and connected to the database in
+                the next development steps.
+              </p>
+              <small>Founder / Owner Full Access</small>
+            </div>
+          )}
+        </div>
       </section>
 
       <style jsx>{`
         * { box-sizing: border-box; }
 
-        .layout {
-          min-height: 100vh;
-          display: flex;
-          background: #101010;
-          color: #e9e9e9;
-          font-family: Arial, sans-serif;
-        }
+        .layout { min-height: 100vh; display: flex; background: #101010; color: #e9e9e9; font-family: Arial, sans-serif; }
 
-        .sidebar {
-          width: 270px;
-          min-height: 100vh;
-          background: linear-gradient(180deg,#080808,#141414);
-          padding: 25px 17px;
-          display: flex;
-          flex-direction: column;
-          flex-shrink: 0;
-          border-right: 1px solid #343434;
-        }
+        .sidebar { width: 270px; min-height: 100vh; background: linear-gradient(180deg,#080808,#141414); padding: 25px 17px; display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #343434; }
 
-        .brand {
-          text-align: center;
-          padding: 8px 5px 23px;
-          border-bottom: 1px solid #333;
-        }
-
+        .brand { text-align: center; padding: 8px 5px 23px; border-bottom: 1px solid #333; }
         .brand-symbol { color: #dedede; font-size: 30px; margin-bottom: 8px; }
         .brand h2 { margin: 0 0 10px; font-size: 23px; letter-spacing: 4px; color: white; }
         .brand span { display: block; color: #999; font-size: 9px; letter-spacing: 2px; margin-top: 4px; }
         .brand-line { height: 1px; width: 65px; background: #a8a8a8; margin: 15px auto; }
         .brand small { color: #c7c7c7; font-size: 9px; letter-spacing: 2px; }
 
-        .profile {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 23px 5px;
-          border-bottom: 1px solid #292929;
-        }
-
+        .profile { display: flex; align-items: center; gap: 12px; padding: 23px 5px; border-bottom: 1px solid #292929; }
         .profile-info { min-width: 0; }
         .profile strong,.profile small { display: block; }
         .profile strong { font-size: 12px; color: white; overflow-wrap: anywhere; }
@@ -682,6 +616,8 @@ export default function Dashboard() {
         .topbar p { margin: 6px 0 0; color: #929292; font-size: 11px; }
         .top-profile-area { position: relative; }
         .top-profile { display: flex; align-items: center; gap: 10px; }
+        .refresh-btn { background: #1c1c1c; color: #e9e9e9; border: 1px solid #444; border-radius: 7px; padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .refresh-btn:hover { background: #2a2a2a; border-color: #777; color: white; }
         .top-status { display: flex; align-items: center; gap: 7px; color: #a9a9a9; font-size: 10px; margin-right: 13px; }
         .profile-trigger { display: flex; align-items: center; gap: 10px; border: 1px solid transparent; background: transparent; color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
         .profile-trigger:hover { background: #252525; border-color: #444; }
@@ -773,6 +709,7 @@ export default function Dashboard() {
           .topbar h1 { font-size: 20px; }
           .top-status { display: none; }
           .top-user { display: none; }
+          .refresh-btn { padding: 7px 9px; font-size: 11px; }
           .profile-dropdown { right: 0; }
           .welcome { padding: 22px 18px; min-height: 175px; }
           .welcome h2 { font-size: 21px; }
