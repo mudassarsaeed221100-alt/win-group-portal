@@ -37,6 +37,9 @@ export default function CreateStaffPage() {
   const [editSurname, setEditSurname] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Security lock
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
   async function getToken() {
@@ -69,7 +72,7 @@ export default function CreateStaffPage() {
     }
   }
 
-   useEffect(() => {
+  useEffect(() => {
     async function checkAccess() {
       const { data } = await supabase.auth.getSession();
       const user = data.session?.user;
@@ -215,6 +218,8 @@ export default function CreateStaffPage() {
       setDeletingId(null);
     }
   }
+
+  // ---------- Security screens ----------
   if (allowed === null) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
@@ -234,6 +239,7 @@ export default function CreateStaffPage() {
     );
   }
 
+  // ---------- Main page ----------
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-8">
       <div className="mx-auto max-w-5xl space-y-8">
