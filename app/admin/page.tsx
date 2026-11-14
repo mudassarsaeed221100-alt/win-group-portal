@@ -4,7 +4,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+
 import TaskManagement from "./TaskManagement";
+import Departments from "./Departments";
+import BusinessRecords from "./BusinessRecords";
+import Reports from "./Reports";
+import StaffEarnings from "./StaffEarnings";
+import StaffPerformance from "./StaffPerformance";
+import Notifications from "./Notifications";
+import ProfileSettings from "./ProfileSettings";
+import Support from "./Support";
 
 type Section =
   | "Overview"
@@ -13,7 +22,11 @@ type Section =
   | "Departments"
   | "Business Records"
   | "Reports"
-  | "Settings";
+  | "Staff Earnings"
+  | "Staff Performance"
+  | "Notifications"
+  | "Profile Settings"
+  | "Support";
 
 type Staff = {
   id: string;
@@ -61,7 +74,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      setUsername(data.username);
+      setUsername(data.username || "");
       setLoading(false);
     }
 
@@ -166,7 +179,11 @@ export default function AdminDashboard() {
     { name: "Departments", icon: "▦" },
     { name: "Business Records", icon: "▤" },
     { name: "Reports", icon: "▥" },
-    { name: "Settings", icon: "⚙" },
+    { name: "Staff Earnings", icon: "₹" },
+    { name: "Staff Performance", icon: "▥" },
+    { name: "Notifications", icon: "♢" },
+    { name: "Profile Settings", icon: "⚙" },
+    { name: "Support", icon: "?" },
   ];
 
   function openSection(section: Section) {
@@ -199,12 +216,18 @@ export default function AdminDashboard() {
           {menuItems.map((item) => (
             <button
               key={item.name}
-              className={activeSection === item.name ? "nav-item active" : "nav-item"}
+              className={
+                activeSection === item.name
+                  ? "nav-item active"
+                  : "nav-item"
+              }
               onClick={() => openSection(item.name)}
             >
               <span className="nav-icon">{item.icon}</span>
               {item.name}
-              {activeSection === item.name && <span className="active-dot" />}
+              {activeSection === item.name && (
+                <span className="active-dot" />
+              )}
             </button>
           ))}
         </nav>
@@ -213,7 +236,14 @@ export default function AdminDashboard() {
           <div className="support-card">
             <strong>Need assistance?</strong>
             <p>Contact your system administrator.</p>
+            <button
+              className="support-link"
+              onClick={() => openSection("Support")}
+            >
+              Open Support →
+            </button>
           </div>
+
           <button className="logout-button" onClick={logout}>
             ↪ Sign Out
           </button>
@@ -244,7 +274,9 @@ export default function AdminDashboard() {
             <>
               <div className="welcome">
                 <div>
-                  <span className="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                  <span className="eyebrow">
+                    ADMINISTRATOR WORKSPACE
+                  </span>
                   <h1>Welcome back, {username}.</h1>
                   <p>
                     Manage your team and access your WIN GROUP workspace
@@ -314,9 +346,25 @@ export default function AdminDashboard() {
 
                   <button
                     className="quick-action"
-                    onClick={() => openSection("Settings")}
+                    onClick={() => openSection("Profile Settings")}
                   >
                     <strong>⚙ Account Settings</strong>
+                    <span>→</span>
+                  </button>
+
+                  <button
+                    className="quick-action"
+                    onClick={() => openSection("Notifications")}
+                  >
+                    <strong>♢ Notifications</strong>
+                    <span>→</span>
+                  </button>
+
+                  <button
+                    className="quick-action"
+                    onClick={() => openSection("Support")}
+                  >
+                    <strong>? Contact Support</strong>
                     <span>→</span>
                   </button>
                 </div>
@@ -376,11 +424,17 @@ export default function AdminDashboard() {
                   <label>Account Role</label>
                   <input value="Staff" disabled />
 
-                  <button className="primary-button" type="submit" disabled={creating}>
+                  <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={creating}
+                  >
                     {creating ? "Creating Account..." : "Create Staff Account"}
                   </button>
 
-                  {message && <div className="form-message">{message}</div>}
+                  {message && (
+                    <div className="form-message">{message}</div>
+                  )}
                 </form>
               </div>
 
@@ -405,7 +459,9 @@ export default function AdminDashboard() {
                 </div>
 
                 {staffLoading ? (
-                  <p className="list-message">Loading Staff accounts...</p>
+                  <p className="list-message">
+                    Loading Staff accounts...
+                  </p>
                 ) : staffError ? (
                   <p className="error-message">{staffError}</p>
                 ) : staff.length === 0 ? (
@@ -426,16 +482,17 @@ export default function AdminDashboard() {
                         {staff.map((member) => (
                           <tr key={member.id}>
                             <td>{member.username}</td>
-                            <td><span className="staff-badge">Staff</span></td>
                             <td>
-                              {new Date(member.created_at).toLocaleDateString(
-                                "en-PK",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                }
-                              )}
+                              <span className="staff-badge">Staff</span>
+                            </td>
+                            <td>
+                              {new Date(
+                                member.created_at
+                              ).toLocaleDateString("en-PK", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
                             </td>
                           </tr>
                         ))}
@@ -451,45 +508,21 @@ export default function AdminDashboard() {
             <TaskManagement />
           )}
 
-          {activeSection === "Departments" && (
-            <ModulePlaceholder
-              title="Departments"
-              description="Department management will be added to this workspace."
-            />
-          )}
+          {activeSection === "Departments" && <Departments />}
 
-          {activeSection === "Business Records" && (
-            <ModulePlaceholder
-              title="Business Records"
-              description="Business record management will be added to this workspace."
-            />
-          )}
+          {activeSection === "Business Records" && <BusinessRecords />}
 
-          {activeSection === "Reports" && (
-            <ModulePlaceholder
-              title="Reports & Analytics"
-              description="Reports and business analytics will be developed in a later stage."
-            />
-          )}
+          {activeSection === "Reports" && <Reports />}
 
-          {activeSection === "Settings" && (
-            <div className="panel settings-panel">
-              <h3>Account Information</h3>
-              <p>Administrator profile details</p>
-              <div className="setting-row">
-                <span>Username</span><strong>{username}</strong>
-              </div>
-              <div className="setting-row">
-                <span>Account Role</span><strong>Admin</strong>
-              </div>
-              <div className="setting-row">
-                <span>Organization</span><strong>WIN GROUP</strong>
-              </div>
-              <div className="setting-row">
-                <span>Account Status</span><strong className="green-text">Active</strong>
-              </div>
-            </div>
-          )}
+          {activeSection === "Staff Earnings" && <StaffEarnings />}
+
+          {activeSection === "Staff Performance" && <StaffPerformance />}
+
+          {activeSection === "Notifications" && <Notifications />}
+
+          {activeSection === "Profile Settings" && <ProfileSettings />}
+
+          {activeSection === "Support" && <Support />}
         </div>
 
         <footer>
@@ -518,6 +551,7 @@ export default function AdminDashboard() {
         .support-card { background: #1a3456; padding: 15px; border-radius: 10px; margin: 25px 0 15px; }
         .support-card strong { font-size: 12px; }
         .support-card p { color: #aebed3; font-size: 11px; line-height: 1.5; margin-bottom: 0; }
+        .support-link { background: transparent; border: 0; color: #b9d6ff; padding: 10px 0 0; cursor: pointer; font-size: 11px; }
         .logout-button { width: 100%; padding: 13px; background: transparent; border: 1px solid #425775; border-radius: 8px; color: white; text-align: left; cursor: pointer; }
         .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .topbar { min-height: 88px; background: white; border-bottom: 1px solid #e4eaf2; padding: 17px 35px; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
@@ -580,10 +614,6 @@ export default function AdminDashboard() {
         .staff-badge { color: #18885b; background: #e5f7ee; padding: 5px 9px; border-radius: 15px; font-size: 10px; }
         .list-message { color: #718096; font-size: 12px; padding: 15px 0; }
         .error-message { color: #bd3333; font-size: 12px; padding: 12px; background: #fff0f0; border-radius: 7px; }
-        .placeholder { max-width: 700px; padding: 40px; text-align: center; }
-        .placeholder h3 { font-size: 20px; }
-        .placeholder p { color: #8492a7; font-size: 13px; line-height: 1.6; }
-        .coming-soon { display: inline-block; margin-top: 12px; padding: 8px 13px; background: #edf4ff; color: #2868b7; border-radius: 20px; font-size: 10px; font-weight: bold; }
         .setting-row { display: flex; justify-content: space-between; gap: 15px; padding: 17px 0; border-top: 1px solid #edf0f5; font-size: 13px; }
         .setting-row span { color: #8492a7; }
         .green-text { color: #18885b; }
@@ -619,21 +649,5 @@ export default function AdminDashboard() {
         }
       `}</style>
     </main>
-  );
-}
-
-function ModulePlaceholder({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="panel placeholder">
-      <h3>{title}</h3>
-      <p>{description}</p>
-      <span className="coming-soon">MODULE IN DEVELOPMENT</span>
-    </div>
   );
 }
