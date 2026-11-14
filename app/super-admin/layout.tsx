@@ -233,4 +233,83 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
       <style jsx>{`
         .sa-layout { min-height: 100vh; display: flex; background: var(--bg); color: var(--text); font-family: Arial, sans-serif; }
-        .sa-layout :global(*) {
+        .sa-layout :global(*) { box-sizing: border-box; }
+
+        .sidebar { width: 270px; min-height: 100vh; background: var(--side); padding: 25px 17px; display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid var(--line); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+        .close-btn { display: none; }
+        .brand { text-align: center; padding: 8px 5px 23px; border-bottom: 1px solid var(--line); }
+        .brand-symbol { color: var(--strong); font-size: 30px; margin-bottom: 8px; }
+        .brand h2 { margin: 0 0 10px; font-size: 23px; letter-spacing: 4px; color: var(--strong); }
+        .brand span { display: block; color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-top: 4px; }
+        .brand-line { height: 1px; width: 65px; background: #a8a8a8; margin: 15px auto; }
+        .brand small { color: var(--muted); font-size: 9px; letter-spacing: 2px; }
+
+        .profile { display: flex; align-items: center; gap: 12px; padding: 23px 5px; border-bottom: 1px solid var(--line); }
+        .profile strong, .profile small { display: block; }
+        .profile strong { font-size: 12px; color: var(--strong); overflow-wrap: anywhere; }
+        .profile small { color: var(--muted); margin-top: 5px; font-size: 11px; }
+        .online, .top-status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 10px; margin-top: 8px; }
+        .online i, .top-status i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #79c99a; box-shadow: 0 0 8px #79c99a80; }
+
+        .avatar { position: relative; overflow: hidden; border-radius: 50%; border: 2px solid white; background: linear-gradient(145deg,#f1f1f1,#8c8c8c); color: #101010; font-weight: bold; text-align: center; font-size: 16px; flex-shrink: 0; }
+        .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+        .menu-title { color: var(--muted); font-size: 9px; letter-spacing: 2px; padding-left: 9px; margin: 24px 0 12px; }
+        nav { display: grid; gap: 7px; }
+        .sa-layout :global(.menu) { display: flex; gap: 12px; align-items: center; padding: 13px 12px; border: 1px solid transparent; border-radius: 7px; color: var(--text); text-decoration: none; font-size: 12px; }
+        .sa-layout :global(.menu:hover) { background: var(--card2); color: var(--strong); }
+        .sa-layout :global(.menu.active) { color: var(--strong); background: var(--card2); border-color: var(--line); box-shadow: inset 3px 0 #b5b5b5; }
+        .menu-icon { width: 19px; text-align: center; font-size: 16px; }
+        .active-mark { margin-left: auto; font-size: 9px; }
+
+        .sidebar-bottom { margin-top: auto; }
+        .authority-card { display: flex; gap: 11px; align-items: center; padding: 13px 10px; margin: 24px 0 15px; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; }
+        .authority-card strong, .authority-card small { display: block; }
+        .authority-card strong { font-size: 11px; color: var(--strong); }
+        .authority-card small { color: var(--muted); font-size: 10px; margin-top: 4px; }
+        .logout { width: 100%; background: var(--btn); color: var(--btnText); border: none; padding: 13px; border-radius: 7px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .logout span { margin-right: 8px; font-size: 16px; }
+        .sidebar-footer { text-align: center; color: var(--muted); font-size: 8px; letter-spacing: 1.4px; margin-top: 17px; line-height: 1.8; }
+        .sidebar-footer span { display: block; }
+
+        .content { flex: 1; min-width: 0; padding: 28px 34px; background: var(--glow), var(--bg); }
+        .topbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 21px; gap: 15px; }
+        .heading-wrap { display: flex; align-items: center; gap: 12px; }
+        .burger { display: none; background: var(--card2); color: var(--strong); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; font-size: 18px; cursor: pointer; }
+        .heading-label { color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-bottom: 9px; }
+        .topbar h1 { font-size: 25px; margin: 0; color: var(--strong); }
+        .topbar p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+        .top-right { display: flex; align-items: center; gap: 10px; }
+        .top-status { margin: 0 6px 0 0; }
+        .theme-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--card2); color: var(--strong); cursor: pointer; font-size: 16px; }
+        .profile-trigger { display: flex; align-items: center; gap: 10px; border: 1px solid transparent; background: transparent; color: var(--strong); padding: 5px 8px; border-radius: 8px; cursor: pointer; }
+        .profile-trigger:hover { background: var(--card2); border-color: var(--line); }
+        .top-user strong, .top-user small { display: block; text-align: left; }
+        .top-user strong { font-size: 11px; color: var(--strong); }
+        .top-user small { color: var(--muted); font-size: 10px; margin-top: 4px; }
+        .dropdown { position: absolute; z-index: 60; top: calc(100% + 12px); right: 0; width: 220px; padding: 9px; background: var(--card2); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 30px #0006; }
+        .dropdown-heading { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+        .dropdown-heading strong, .dropdown-heading small { display: block; }
+        .dropdown-heading strong { color: var(--strong); font-size: 12px; }
+        .dropdown-heading small { color: var(--muted); font-size: 10px; margin-top: 5px; }
+        .sa-layout :global(.dd-item) { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent; color: var(--text); padding: 11px 10px; border-radius: 6px; text-align: left; cursor: pointer; font-size: 12px; text-decoration: none; }
+        .sa-layout :global(.dd-item:hover) { background: var(--line); color: var(--strong); }
+        .dd-logout { border-top: 1px solid var(--line) !important; border-radius: 0 !important; margin-top: 5px; color: #e08a8a !important; }
+
+        .sa-content { margin-top: 20px; }
+        .overlay { display: none; }
+
+        @media (max-width: 900px) {
+          .sidebar { position: fixed; left: 0; top: 0; z-index: 70; transform: translateX(-100%); transition: transform .25s; }
+          .sidebar.open { transform: translateX(0); }
+          .overlay { display: block; position: fixed; inset: 0; background: #0009; z-index: 65; }
+          .close-btn { display: block; align-self: flex-end; background: none; border: none; color: var(--strong); font-size: 20px; cursor: pointer; }
+          .burger { display: block; }
+          .content { padding: 17px; }
+          .topbar h1 { font-size: 20px; }
+          .top-status, .top-user { display: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
