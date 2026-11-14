@@ -115,4 +115,72 @@ export default function StaffEarningsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Staff Earnings</h1>
-            <p className="mt-2 text-slate-400">Approved submissions ki earning report.
+            <p className="mt-2 text-slate-400">Approved submissions ki earning report.</p>
+          </div>
+          <button onClick={loadEarnings} className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-700">
+            Refresh
+          </button>
+        </div>
+
+        {message && <div className="rounded-lg bg-red-900/40 p-3 text-sm text-red-300">{message}</div>}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map((c) => (
+            <div key={c.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <p className="text-sm text-slate-400">{c.title}</p>
+              <h2 className="mt-2 text-2xl font-bold text-green-400">{money(c.amount)}</h2>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900">
+          <table className="w-full min-w-[850px] text-left text-sm">
+            <thead className="bg-slate-800 text-slate-300">
+              <tr>
+                <th className="p-4">Staff Name</th>
+                <th className="p-4">Total</th>
+                <th className="p-4">Today</th>
+                <th className="p-4">Weekly</th>
+                <th className="p-4">Monthly</th>
+                <th className="p-4">Approved Work</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading earnings...</td></tr>
+              ) : staff.length === 0 ? (
+                <tr><td colSpan={6} className="p-8 text-center text-slate-400">Koi staff nahi mila.</td></tr>
+              ) : (
+                staff.map((p) => (
+                  <tr key={p.id} className="border-t border-slate-800">
+                    <td className="p-4 font-medium">
+                      {p.name}
+                      <p className="text-xs text-slate-500">{p.username}</p>
+                    </td>
+                    <td className="p-4 font-semibold text-green-400">{money(p.total)}</td>
+                    <td className="p-4">{money(p.daily)}</td>
+                    <td className="p-4">{money(p.weekly)}</td>
+                    <td className="p-4">{money(p.monthly)}</td>
+                    <td className="p-4">{p.submissions}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {!loading && staff.length > 0 && (
+              <tfoot className="border-t border-slate-700 bg-slate-800 font-bold">
+                <tr>
+                  <td className="p-4">Team Total</td>
+                  <td className="p-4">{money(totals.total)}</td>
+                  <td className="p-4">{money(totals.daily)}</td>
+                  <td className="p-4">{money(totals.weekly)}</td>
+                  <td className="p-4">{money(totals.monthly)}</td>
+                  <td className="p-4">{totals.count}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    </main>
+  );
+}
