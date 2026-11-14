@@ -37,7 +37,7 @@ export default function CreateStaffPage() {
   const [editSurname, setEditSurname] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   async function getToken() {
     const { data, error } = await supabase.auth.getSession();
@@ -69,8 +69,29 @@ export default function CreateStaffPage() {
     }
   }
 
-  useEffect(() => {
-    loadStaff();
+   useEffect(() => {
+    async function checkAccess() {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user) {
+        setAllowed(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile && ["super_admin", "admin"].includes(profile.role)) {
+        setAllowed(true);
+        loadStaff();
+      } else {
+        setAllowed(false);
+      }
+    }
+    checkAccess();
   }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -193,6 +214,24 @@ export default function CreateStaffPage() {
     } finally {
       setDeletingId(null);
     }
+  }
+  if (allowed === null) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        Checking access...
+      </main>
+    );
+  }
+
+  if (allowed === false) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-4 text-center text-white">
+        <h1 className="text-2xl font-bold">🔒 Access Denied</h1>
+        <p className="text-slate-400">
+          Aapko is page ki permission nahi hai. Admin account se login karein.
+        </p>
+      </main>
+    );
   }
 
   return (
