@@ -11,25 +11,24 @@ type Person = { id: string; username: string; first_name: string | null; surname
 type Me = { first_name: string | null; surname: string | null; phone: string | null; avatar_url: string | null; username: string; role: string; team_code: string | null };
 
 const modules = [
-  { name: "Create Staff", href: "/super-admin/create-staff", icon: "👤", desc: "Staff banayein aur manage karein" },
-  { name: "Team Management", href: "/super-admin/team-management", icon: "👥", desc: "Team members aur team code" },
-  { name: "Work Tasks", href: "/super-admin/work-tasks", icon: "📋", desc: "Staff ko tasks dein" },
-  { name: "Submissions", href: "/super-admin/submissions", icon: "📥", desc: "Kaam approve ya reject karein" },
-  { name: "Staff Performance", href: "/super-admin/staff-performance", icon: "📈", desc: "Ranking aur report" },
-  { name: "Staff Earnings", href: "/super-admin/staff-earnings", icon: "💰", desc: "Staff ki kamai" },
-  { name: "Team Communication", href: "/super-admin/team-communication", icon: "💬", desc: "Announcement aur chat" },
+  { name: "Create Staff", href: "/super-admin/create-staff", icon: "◈", desc: "Staff banayein aur manage karein" },
+  { name: "Team Management", href: "/super-admin/team-management", icon: "☷", desc: "Team members aur team code" },
+  { name: "Work Tasks", href: "/super-admin/work-tasks", icon: "▣", desc: "Staff ko tasks dein" },
+  { name: "Submissions", href: "/super-admin/submissions", icon: "▤", desc: "Kaam approve ya reject karein" },
+  { name: "Staff Performance", href: "/super-admin/staff-performance", icon: "▥", desc: "Ranking aur report" },
+  { name: "Staff Earnings", href: "/super-admin/staff-earnings", icon: "₹", desc: "Staff ki kamai" },
+  { name: "Team Communication", href: "/super-admin/team-communication", icon: "✉", desc: "Announcement aur chat" },
 ];
 
 const box = "w-full rounded-lg border border-slate-700 bg-slate-950 p-3";
+const card = "rounded-xl border border-slate-800 bg-slate-900 p-5";
 
 function money(n: number) {
   return "Rs. " + n.toLocaleString("en-PK");
 }
 
 export default function SuperAdminHome() {
-  const [view, setView] = useState<"dashboard" | "profile" | "settings">("dashboard");
-  const [open, setOpen] = useState(false);
-
+  const [tab, setTab] = useState<"dashboard" | "profile" | "settings">("dashboard");
   const [myId, setMyId] = useState("");
   const [me, setMe] = useState<Me | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -37,18 +36,14 @@ export default function SuperAdminHome() {
   const [subs, setSubs] = useState<Sub[]>([]);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [search, setSearch] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Profile form
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("");
-
-  // Settings form
   const [newCode, setNewCode] = useState("");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
@@ -119,9 +114,8 @@ export default function SuperAdminHome() {
     load();
   }, []);
 
-  function go(v: "dashboard" | "profile" | "settings") {
-    setView(v);
-    setOpen(false);
+  function go(t: "dashboard" | "profile" | "settings") {
+    setTab(t);
     setMessage("");
     setError("");
   }
@@ -133,16 +127,11 @@ export default function SuperAdminHome() {
     setError("");
     const { error } = await supabase
       .from("profiles")
-      .update({
-        first_name: firstName.trim(),
-        surname: surname.trim(),
-        phone: phone.trim() || null,
-        avatar_url: avatar.trim() || null,
-      })
+      .update({ first_name: firstName.trim(), surname: surname.trim(), phone: phone.trim() || null, avatar_url: avatar.trim() || null })
       .eq("id", myId);
     setBusy(false);
     if (error) return setError(error.message);
-    setMessage("Profile update ho gayi!");
+    setMessage("Profile update ho gayi! Sidebar mein naya naam dekhne ke liye page refresh karein.");
     load();
   }
 
@@ -175,12 +164,6 @@ export default function SuperAdminHome() {
     setMessage("Password badal gaya!");
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = "/";
-  }
-
-  // ---------- Hisaab ----------
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -198,228 +181,181 @@ export default function SuperAdminHome() {
     return p ? [p.first_name, p.surname].filter(Boolean).join(" ") || p.username : "Staff";
   };
   const taskName = (id: string) => tasks.find((t) => t.id === id)?.text || "Task";
-  const statusColor = (s: string) =>
-    s === "completed" || s === "approved" ? "text-green-400" : s === "rejected" ? "text-red-400" : "text-orange-400";
-
   const myName = [me?.first_name, me?.surname].filter(Boolean).join(" ") || me?.username || "";
   const term = search.toLowerCase().trim();
   const found = term
     ? people.filter((p) => ([p.first_name, p.surname, p.username].join(" ") + " " + (p.phone || "")).toLowerCase().includes(term))
     : [];
 
-  const cards = [
-    { title: "Total Staff", value: String(people.length), color: "text-blue-400" },
-    { title: "Pending Tasks", value: String(pendingTasks), color: "text-orange-400" },
-    { title: "Late Tasks", value: String(lateTasks), color: "text-red-400" },
-    { title: "Pending Submissions", value: String(pendingSubs), color: "text-yellow-400" },
-    { title: "Is Mahine ki Kamai", value: money(monthEarning), color: "text-green-400" },
+  const stats = [
+    { title: "Total Staff", value: String(people.length), icon: "◈" },
+    { title: "Pending Tasks", value: String(pendingTasks), icon: "▣" },
+    { title: "Late Tasks", value: String(lateTasks), icon: "◷" },
+    { title: "Pending Submissions", value: String(pendingSubs), icon: "▤" },
+    { title: "Is Mahine ki Kamai", value: money(monthEarning), icon: "₹" },
   ];
 
-  const sideBtn = (active: boolean) =>
-    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm " +
-    (active ? "bg-blue-600 font-semibold" : "text-slate-300 hover:bg-slate-800");
+  const tabBtn = (active: boolean) =>
+    "rounded-lg border px-4 py-2 text-sm " + (active ? "bg-blue-600 border-slate-700 font-semibold" : "border-slate-700 text-slate-300 hover:bg-slate-800");
+
+  if (loading) return <p className="text-slate-400">Loading...</p>;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
-      {/* Mobile par bahar click se band */}
-      {open && <div onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/60 lg:hidden" />}
-
-      {/* ---------- Sidebar ---------- */}
-      <aside
-        className={
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-800 bg-slate-900 transition-transform lg:static lg:translate-x-0 " +
-          (open ? "translate-x-0" : "-translate-x-full")
-        }
-      >
-        <div className="flex items-center justify-between border-b border-slate-800 p-4">
-          <span className="text-lg font-bold text-blue-400">Super Admin</span>
-          <button onClick={() => setOpen(false)} className="text-xl lg:hidden">✕</button>
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          <button onClick={() => go("dashboard")} className={sideBtn(view === "dashboard")}>🏠 Dashboard</button>
-          <p className="px-3 pt-3 text-xs uppercase text-slate-500">Modules</p>
-          {modules.map((m) => (
-            <Link key={m.href} href={m.href} className={sideBtn(false)}>
-              {m.icon} {m.name}
-            </Link>
-          ))}
-          <p className="px-3 pt-3 text-xs uppercase text-slate-500">Account</p>
-          <button onClick={() => go("profile")} className={sideBtn(view === "profile")}>✏️ My Profile</button>
-          <button onClick={() => go("settings")} className={sideBtn(view === "settings")}>⚙️ Settings</button>
-        </nav>
-
-        <div className="border-t border-slate-800 p-4">
-          <button onClick={() => go("profile")} className="flex w-full items-center gap-3 text-left">
-            <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-slate-700 font-bold">
-              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="h-full w-full object-cover" /> : myName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{myName}</p>
-              <p className="text-xs text-slate-400">{me?.role === "super_admin" ? "Super Admin" : "Admin"} · {me?.team_code || "—"}</p>
-            </div>
-          </button>
-          <button onClick={logout} className="mt-3 w-full rounded-lg border border-red-700 py-2 text-sm text-red-300 hover:bg-red-900/40">
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* ---------- Main ---------- */}
-      <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-800 bg-slate-900 p-3 lg:hidden">
-          <button onClick={() => setOpen(true)} className="rounded-lg border border-slate-700 px-3 py-2 text-xl" aria-label="Menu">☰</button>
-          <span className="font-bold text-blue-400">Super Admin</span>
-        </header>
-
-        <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
-          {message && <div className="rounded-lg bg-green-900/40 p-3 text-green-300">{message}</div>}
-          {error && <div className="rounded-lg bg-red-900/40 p-3 text-red-300">{error}</div>}
-
-          {loading ? (
-            <p className="text-slate-400">Loading...</p>
-          ) : view === "dashboard" ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-3xl font-bold">Dashboard</h1>
-                  <p className="mt-2 text-slate-400">Khush aamdeed, {myName} 👋</p>
-                </div>
-                <button onClick={load} className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-700">Refresh</button>
-              </div>
-
-              {pendingSubs > 0 && (
-                <Link href="/super-admin/submissions" className="block rounded-xl border border-yellow-700 bg-yellow-900/30 p-4 text-yellow-200">
-                  ⚠️ {pendingSubs} submission approve hone ka intezar kar rahi hain. Dekhne ke liye click karein →
-                </Link>
-              )}
-              {lateTasks > 0 && (
-                <Link href="/super-admin/staff-performance" className="block rounded-xl border border-red-700 bg-red-900/30 p-4 text-red-200">
-                  ⏰ {lateTasks} task ki deadline guzar chuki hai. Dekhne ke liye click karein →
-                </Link>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
-                {cards.map((c) => (
-                  <div key={c.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                    <p className="text-sm text-slate-400">{c.title}</p>
-                    <h2 className={"mt-2 text-2xl font-bold " + c.color}>{c.value}</h2>
-                  </div>
-                ))}
-              </div>
-
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <input value={search} onChange={(e) => setSearch(e.target.value)} className={box} placeholder="🔍 Staff dhoondein (naam, username, phone)..." />
-                {term && (
-                  <div className="mt-3 text-sm">
-                    {found.length === 0 ? (
-                      <p className="text-slate-400">Koi staff nahi mila.</p>
-                    ) : (
-                      found.map((p) => (
-                        <div key={p.id} className="flex justify-between border-t border-slate-800 py-2">
-                          <span>{nameOf(p.id)} <span className="text-slate-500">@{p.username}</span></span>
-                          <span className="text-slate-400">{p.phone || "—"}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <h2 className="mb-4 text-xl font-semibold">Modules</h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {modules.map((m) => (
-                    <Link key={m.href} href={m.href} className="rounded-2xl border border-slate-800 bg-slate-900 p-5 hover:border-blue-600 hover:bg-slate-800">
-                      <div className="text-3xl">{m.icon}</div>
-                      <h3 className="mt-3 font-semibold">{m.name}</h3>
-                      <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-
-              <div className="grid gap-5 lg:grid-cols-3">
-                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h2 className="mb-3 font-semibold">📋 Naye Tasks</h2>
-                  {tasks.length === 0 ? <p className="text-sm text-slate-400">Abhi koi task nahi.</p> : tasks.slice(0, 5).map((t) => (
-                    <div key={t.id} className="border-t border-slate-800 py-2 text-sm">
-                      <p className="font-medium">{t.text}</p>
-                      <p className="text-xs text-slate-400">{nameOf(t.assigned_to)} · <span className={statusColor(t.status)}>{t.status}</span></p>
-                    </div>
-                  ))}
-                </section>
-                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h2 className="mb-3 font-semibold">📥 Nayi Submissions</h2>
-                  {subs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi submission nahi.</p> : subs.slice(0, 5).map((s) => (
-                    <div key={s.id} className="border-t border-slate-800 py-2 text-sm">
-                      <p className="font-medium">{nameOf(s.user_id)}</p>
-                      <p className="text-xs text-slate-400">{taskName(s.task_id)} · <span className={statusColor(s.status)}>{s.status}</span></p>
-                    </div>
-                  ))}
-                </section>
-                <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <h2 className="mb-3 font-semibold">📢 Announcements</h2>
-                  {msgs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi announcement nahi.</p> : msgs.map((m) => (
-                    <div key={m.id} className="border-t border-slate-800 py-2 text-sm">
-                      <p className="line-clamp-2">{m.content}</p>
-                      <p className="text-xs text-slate-400">{nameOf(m.sender_id)} · {new Date(m.created_at).toLocaleDateString()}</p>
-                    </div>
-                  ))}
-                </section>
-              </div>
-            </>
-          ) : view === "profile" ? (
-            <>
-              <h1 className="text-3xl font-bold">My Profile</h1>
-              <section className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-slate-700 text-2xl font-bold">
-                  {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : myName.charAt(0).toUpperCase()}
-                </div>
-                <div className="text-sm">
-                  <p className="text-lg font-semibold">@{me?.username}</p>
-                  <p className="text-slate-400">{me?.role === "super_admin" ? "Super Admin" : "Admin"} · Team: {me?.team_code || "—"}</p>
-                </div>
-              </section>
-              <form onSubmit={saveProfile} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={box} placeholder="First Name" />
-                  <input value={surname} onChange={(e) => setSurname(e.target.value)} className={box} placeholder="Surname" />
-                </div>
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} className={box} placeholder="Phone Number" />
-                <input value={avatar} onChange={(e) => setAvatar(e.target.value)} className={box} placeholder="Profile photo ka link (https://...)" />
-                <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700 disabled:opacity-50">
-                  {busy ? "Saving..." : "Save Profile"}
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold">Settings</h1>
-              <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <h2 className="text-xl font-semibold">🏷️ Team Code</h2>
-                <p className="text-slate-400">Maujooda code: <span className="font-bold text-amber-400">{me?.team_code || "—"}</span></p>
-                {me?.role === "super_admin" ? (
-                  <form onSubmit={changeCode} className="flex flex-wrap gap-3">
-                    <input required value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} className={box + " flex-1"} placeholder="Naya Team Code (jaise WIN01)" />
-                    <button type="submit" disabled={busy} className="rounded-lg bg-amber-600 px-5 font-semibold hover:bg-amber-700 disabled:opacity-50">Update</button>
-                  </form>
-                ) : (
-                  <p className="text-sm text-slate-500">Team Code sirf Super Admin badal sakta hai.</p>
-                )}
-              </section>
-              <form onSubmit={changePassword} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <h2 className="text-xl font-semibold">🔑 Password Badlein</h2>
-                <input type="password" value={pass1} onChange={(e) => setPass1(e.target.value)} className={box} placeholder="Naya password (kam az kam 8)" />
-                <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} className={box} placeholder="Naya password dobara" />
-                <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700 disabled:opacity-50">
-                  {busy ? "Saving..." : "Change Password"}
-                </button>
-              </form>
-            </>
-          )}
-        </main>
+    <div className="space-y-6 text-white">
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => go("dashboard")} className={tabBtn(tab === "dashboard")}>◆ Dashboard</button>
+        <button onClick={() => go("profile")} className={tabBtn(tab === "profile")}>◉ Profile Edit</button>
+        <button onClick={() => go("settings")} className={tabBtn(tab === "settings")}>⚙ Settings</button>
+        <button onClick={load} className="ml-auto rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">↻ Refresh</button>
       </div>
+
+      {message && <div className="rounded-lg border border-green-800 bg-green-900/30 p-3 text-green-300">{message}</div>}
+      {error && <div className="rounded-lg border border-red-800 bg-red-900/30 p-3 text-red-300">{error}</div>}
+
+      {tab === "dashboard" && (
+        <>
+          <section className="rounded-xl border border-slate-700 bg-slate-900 p-7">
+            <p className="text-xs tracking-widest text-slate-400">◆ &nbsp; SUPER ADMIN CONTROL CENTER</p>
+            <h2 className="mt-3 text-3xl font-bold">Welcome, {myName}</h2>
+            <p className="mt-2 max-w-xl text-sm text-slate-400">
+              Apni team, tasks, submissions aur kamai ko ek hi jagah se manage karein.
+            </p>
+            <span className="mt-4 inline-block rounded border border-slate-700 px-3 py-1 text-xs tracking-widest text-slate-300">
+              TEAM CODE: {me?.team_code || "—"}
+            </span>
+          </section>
+
+          {pendingSubs > 0 && (
+            <Link href="/super-admin/submissions" className="block rounded-xl border border-yellow-700 bg-yellow-900/20 p-4 text-yellow-300">
+              ⚠ {pendingSubs} submission approve hone ka intezar kar rahi hain. Dekhne ke liye click karein →
+            </Link>
+          )}
+          {lateTasks > 0 && (
+            <Link href="/super-admin/staff-performance" className="block rounded-xl border border-red-800 bg-red-900/20 p-4 text-red-300">
+              ◷ {lateTasks} task ki deadline guzar chuki hai. Dekhne ke liye click karein →
+            </Link>
+          )}
+
+          <div>
+            <p className="text-xs tracking-widest text-slate-400">ORGANIZATION</p>
+            <h3 className="mb-4 mt-1 text-lg font-semibold">Team Overview</h3>
+            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+              {stats.map((s) => (
+                <div key={s.title} className={card}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">{s.title}</span>
+                    <span className="grid h-8 w-8 place-items-center rounded-lg border border-slate-700">{s.icon}</span>
+                  </div>
+                  <h2 className="mt-3 text-2xl font-bold">{s.value}</h2>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <section className={card}>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} className={box} placeholder="⌕ Staff dhoondein (naam, username, phone)..." />
+            {term && (
+              <div className="mt-3 text-sm">
+                {found.length === 0 ? (
+                  <p className="text-slate-400">Koi staff nahi mila.</p>
+                ) : (
+                  found.map((p) => (
+                    <div key={p.id} className="flex justify-between border-t border-slate-800 py-2">
+                      <span>{nameOf(p.id)} <span className="text-slate-500">@{p.username}</span></span>
+                      <span className="text-slate-400">{p.phone || "—"}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+
+          <div>
+            <p className="text-xs tracking-widest text-slate-400">QUICK ACCESS</p>
+            <h3 className="mb-4 mt-1 text-lg font-semibold">Modules</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {modules.map((m) => (
+                <Link key={m.href} href={m.href} className={card + " hover:bg-slate-800"}>
+                  <div className="text-2xl">{m.icon}</div>
+                  <h3 className="mt-3 font-semibold">{m.name}</h3>
+                  <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-3">
+            <section className={card}>
+              <h2 className="mb-3 font-semibold">▣ Naye Tasks</h2>
+              {tasks.length === 0 ? <p className="text-sm text-slate-400">Abhi koi task nahi.</p> : tasks.slice(0, 5).map((t) => (
+                <div key={t.id} className="border-t border-slate-800 py-2 text-sm">
+                  <p className="font-medium">{t.text}</p>
+                  <p className="text-xs text-slate-400">{nameOf(t.assigned_to)} · {t.status}</p>
+                </div>
+              ))}
+            </section>
+            <section className={card}>
+              <h2 className="mb-3 font-semibold">▤ Nayi Submissions</h2>
+              {subs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi submission nahi.</p> : subs.slice(0, 5).map((s) => (
+                <div key={s.id} className="border-t border-slate-800 py-2 text-sm">
+                  <p className="font-medium">{nameOf(s.user_id)}</p>
+                  <p className="text-xs text-slate-400">{taskName(s.task_id)} · {s.status}</p>
+                </div>
+              ))}
+            </section>
+            <section className={card}>
+              <h2 className="mb-3 font-semibold">✉ Announcements</h2>
+              {msgs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi announcement nahi.</p> : msgs.map((m) => (
+                <div key={m.id} className="border-t border-slate-800 py-2 text-sm">
+                  <p>{m.content}</p>
+                  <p className="text-xs text-slate-400">{nameOf(m.sender_id)} · {new Date(m.created_at).toLocaleDateString()}</p>
+                </div>
+              ))}
+            </section>
+          </div>
+        </>
+      )}
+
+      {tab === "profile" && (
+        <form onSubmit={saveProfile} className={card + " max-w-2xl space-y-4"}>
+          <h2 className="text-xl font-semibold">◉ Profile Edit</h2>
+          <p className="text-sm text-slate-400">@{me?.username} · {me?.role === "super_admin" ? "Super Admin" : "Admin"}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={box} placeholder="First Name" />
+            <input value={surname} onChange={(e) => setSurname(e.target.value)} className={box} placeholder="Surname" />
+          </div>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={box} placeholder="Phone Number" />
+          <input value={avatar} onChange={(e) => setAvatar(e.target.value)} className={box} placeholder="Profile photo ka link (https://...)" />
+          <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold disabled:opacity-50">
+            {busy ? "Saving..." : "Save Profile"}
+          </button>
+        </form>
+      )}
+
+      {tab === "settings" && (
+        <div className="max-w-2xl space-y-5">
+          <section className={card + " space-y-4"}>
+            <h2 className="text-xl font-semibold">◇ Team Code</h2>
+            <p className="text-slate-400">Maujooda code: <b className="text-white">{me?.team_code || "—"}</b></p>
+            {me?.role === "super_admin" ? (
+              <form onSubmit={changeCode} className="flex flex-wrap gap-3">
+                <input required value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} className={box + " flex-1"} placeholder="Naya Team Code (jaise WIN01)" />
+                <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-5 font-semibold disabled:opacity-50">Update</button>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-500">Team Code sirf Super Admin badal sakta hai.</p>
+            )}
+          </section>
+          <form onSubmit={changePassword} className={card + " space-y-4"}>
+            <h2 className="text-xl font-semibold">⚙ Password Badlein</h2>
+            <input type="password" value={pass1} onChange={(e) => setPass1(e.target.value)} className={box} placeholder="Naya password (kam az kam 8)" />
+            <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} className={box} placeholder="Naya password dobara" />
+            <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold disabled:opacity-50">
+              {busy ? "Saving..." : "Change Password"}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
