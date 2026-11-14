@@ -44,7 +44,6 @@ export default function SuperAdminHome() {
   const [surname, setSurname] = useState("");
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("");
-  const [newCode, setNewCode] = useState("");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
   const [busy, setBusy] = useState(false);
@@ -132,20 +131,6 @@ export default function SuperAdminHome() {
     setBusy(false);
     if (error) return setError(error.message);
     setMessage("Profile update ho gayi! Sidebar mein naya naam dekhne ke liye page refresh karein.");
-    load();
-  }
-
-  async function changeCode(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-    if (!confirm("Team Code badalne se poori team ka code badal jayega. Aage barhein?")) return;
-    setBusy(true);
-    const { data, error } = await supabase.rpc("change_team_code", { new_code: newCode });
-    setBusy(false);
-    if (error) return setError(error.message);
-    setNewCode("");
-    setMessage("Team Code badal kar " + data + " ho gaya!");
     load();
   }
 
@@ -337,14 +322,7 @@ export default function SuperAdminHome() {
           <section className={card + " space-y-4"}>
             <h2 className="text-xl font-semibold">◇ Team Code</h2>
             <p className="text-slate-400">Maujooda code: <b className="text-white">{me?.team_code || "—"}</b></p>
-            {me?.role === "super_admin" ? (
-              <form onSubmit={changeCode} className="flex flex-wrap gap-3">
-                <input required value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} className={box + " flex-1"} placeholder="Naya Team Code (jaise WIN01)" />
-                <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-5 font-semibold disabled:opacity-50">Update</button>
-              </form>
-            ) : (
-              <p className="text-sm text-slate-500">Team Code sirf Super Admin badal sakta hai.</p>
-            )}
+            <p className="text-sm text-slate-500">🔒 Team Code Founder deta hai. Aap ise badal nahi sakte.</p>
           </section>
           <form onSubmit={changePassword} className={card + " space-y-4"}>
             <h2 className="text-xl font-semibold">⚙ Password Badlein</h2>
