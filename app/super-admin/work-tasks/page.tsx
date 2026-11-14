@@ -182,4 +182,24 @@ export default function WorkTasksPage() {
                     <h3 className="font-semibold">{task.text}</h3>
                     <p className="mt-1 text-sm text-slate-400">{task.description || "No description"}</p>
                     <p className="mt-2 text-sm text-slate-300">Staff: {staffName(task.assigned_to)}</p>
-                    <p className="mt-1 text-sm
+                    <p className="mt-1 text-sm text-slate-400">Deadline: {task.due_date || "Not set"}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <select value={task.status} onChange={(e) => updateStatus(task.id, e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm">
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                    <button onClick={() => deleteTask(task.id)} className="rounded-lg bg-red-600 px-3 text-sm hover:bg-red-700">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
