@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from("profiles")
-    .select("id, username, first_name, surname, role, team_code, created_at")
+    .select("id, username, first_name, surname, phone, role, team_code, created_at")
     .eq("role", "staff")
     .order("created_at", { ascending: false });
 
