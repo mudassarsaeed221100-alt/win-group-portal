@@ -103,7 +103,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
-
+  const [refreshKey, setRefreshKey] = useState(0);
   const displayName = `${firstName} ${surname}`.trim() || "Founder";
 
   useEffect(() => {
@@ -357,6 +357,13 @@ export default function Dashboard() {
 
           <div className="top-profile-area">
             <div className="top-profile">
+                            <button
+                onClick={() => setRefreshKey(refreshKey + 1)}
+                title="Page Refresh"
+                style={{ background: "#1c1c1c", color: "#e9e9e9", border: "1px solid #444", borderRadius: "7px", padding: "8px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", marginRight: "8px" }}
+              >
+                ↻ Refresh
+              </button>
               <div className="top-status">
                 <i /> System Active
               </div>
@@ -404,8 +411,12 @@ export default function Dashboard() {
             )}
           </div>
         </header>
-
+        <div key={refreshKey}>
         {activeMenu === "Profile Edit" ? (
+           </div>
+        )}
+        </div>
+      </section>
           <ProfileSettings />
         ) : activeMenu === "User Management" ? (
           <UserManagement />
