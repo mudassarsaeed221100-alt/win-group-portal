@@ -4,63 +4,68 @@ import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 const rolePermissions: Record<string, string[]> = {
   founder_owner: ["super_admin", "admin", "staff"],
-  super_admin: ["staff"],
+  super_admin: ["admin", "staff"],
   admin: ["staff"],
 };
 
-// GET: Staff accounts ki list
+async function authenticate(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return { error: "Login required.", status: 401 as const };
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    return { error: "Invalid login session.", status: 401 as const };
+  }
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, role, team_code")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: "Account profile not found.", status: 403 as const };
+  }
+
+  if (!rolePermissions[profile.role]) {
+    return { error: "You are not authorized.", status: 403 as const };
+  }
+
+  return { user, profile };
+}
+
+// GET: Apni team ke Staff ki list
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    const auth = await authenticate(request);
 
-    if (!token) {
+    if ("error" in auth) {
       return NextResponse.json(
-        { error: "Login required." },
-        { status: 401 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid login session." },
-        { status: 401 }
-      );
-    }
-
-    const { data: profile, error: profileError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("role, team_code")
-        .eq("id", user.id)
-        .single();
-
-    if (
-      profileError ||
-      !profile ||
-      !["founder_owner", "super_admin", "admin"].includes(profile.role)
-    ) {
-      return NextResponse.json(
-        { error: "You are not authorized." },
-        { status: 403 }
-      );
-    }
+    const { profile } = auth;
 
     let query = supabaseAdmin
       .from("profiles")
-      .select("id, username, first_name, surname, role, team_code, created_at")
+      .select(
+        "id, username, first_name, surname, role, team_code, created_at"
+      )
       .eq("role", "staff")
       .order("created_at", { ascending: false });
 
-    // Founder tamam Staff dekh sakta hai.
-    // Super Admin aur Admin sirf apni team ke Staff dekhenge.
     if (profile.role !== "founder_owner") {
       if (!profile.team_code) {
         return NextResponse.json(
@@ -72,18 +77,16 @@ export async function GET(request: NextRequest) {
       query = query.eq("team_code", profile.team_code);
     }
 
-    const { data: staff, error: staffError } = await query;
+    const { data: staff, error } = await query;
 
-    if (staffError) {
+    if (error) {
       return NextResponse.json(
         { error: "Unable to load Staff accounts." },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      staff: staff || [],
-    });
+    return NextResponse.json({ staff: staff || [] });
   } catch {
     return NextResponse.json(
       { error: "Server error. Please try again." },
@@ -92,49 +95,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: New account create karna
+// POST: Account create karna
 export async function POST(request: NextRequest) {
   let createdUserId: string | null = null;
 
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    const auth = await authenticate(request);
 
-    if (!token) {
+    if ("error" in auth) {
       return NextResponse.json(
-        { error: "Login required." },
-        { status: 401 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid login session." },
-        { status: 401 }
-      );
-    }
-
-    const { data: profile, error: profileError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("role, team_code")
-        .eq("id", user.id)
-        .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json(
-        { error: "Account profile not found." },
-        { status: 403 }
-      );
-    }
-
+    const { profile } = auth;
     const body = await request.json();
 
     const {
@@ -151,26 +126,20 @@ export async function POST(request: NextRequest) {
     const permittedRoles = rolePermissions[profile.role];
 
     if (
-      !permittedRoles ||
+      !permittedRoles.includes(role) ||
       typeof email !== "string" ||
       typeof password !== "string" ||
       typeof username !== "string" ||
-      typeof role !== "string" ||
       !email.trim() ||
       !username.trim() ||
-      password.length < 8 ||
-      !permittedRoles.includes(role)
+      password.length < 8
     ) {
       return NextResponse.json(
-        {
-          error:
-            "You do not have permission to create this account or the details are invalid.",
-        },
-        { status: 403 }
+        { error: "Invalid details or account creation permission denied." },
+        { status: 400 }
       );
     }
 
-    // Super Admin aur Admin apni team mein hi Staff bana sakte hain.
     let assignedTeamCode: string | null = null;
 
     if (profile.role === "founder_owner") {
@@ -186,6 +155,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Super Admin aur Admin ka apna Team Code hi assign hoga.
       assignedTeamCode = profile.team_code;
     }
 
@@ -205,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     createdUserId = created.user.id;
 
-    const profileData: Record<string, any> = {
+    const profileData: Record<string, unknown> = {
       id: created.user.id,
       username: username.trim(),
       role,
