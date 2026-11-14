@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,170 +5,66 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    try {
-      const { data, error: loginError } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (loginError || !data.user) {
-        setError(loginError?.message || "Login failed.");
-        return;
-      }
-
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-
-      if (profileError || !profile) {
-        setError("Account profile not found. Please contact Founder.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.role === "founder_owner") {
-        router.replace("/founder");
-      } else if (profile.role === "super_admin") {
-        router.replace("/super-admin");
-      } else if (profile.role === "admin") {
-        router.replace("/admin");
-      } else if (profile.role === "staff") {
-        router.replace("/staff");
-      } else {
-        setError("Your account role is not authorized.");
-        await supabase.auth.signOut();
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
+    if (error || !data.user) {
       setLoading(false);
+      setError("Email ya password ghalat hai.");
+      return;
+    }
+
+    // Role ke hisaab se sahi page par bhejna
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    setLoading(false);
+
+    if (profile && ["super_admin", "admin"].includes(profile.role)) {
+      router.push("/super-admin");
+    } else {
+      router.push("/dashboard");
     }
   }
 
   return (
-    <main style={{
-      minHeight: "100vh",
-      background: "#edf1f7",
-      display: "grid",
-      placeItems: "center",
-      fontFamily: "Arial",
-      padding: "20px"
-    }}>
-      <form onSubmit={handleLogin} style={{
-        background: "white",
-        padding: "35px",
-        borderRadius: "14px",
-        width: "100%",
-        maxWidth: "390px"
-      }}>
-        <h1 style={{ color: "#102b50", textAlign: "center" }}>
-          WIN GROUP
-        </h1>
+    <main style={{ minHeight: "100vh", background: "#edf1f7", display: "grid", placeItems: "center", fontFamily: "Arial", padding: "20px" }}>
+      <form onSubmit={handleLogin} style={{ background: "white", padding: "40px", borderRadius: "14px", width: "100%", maxWidth: "390px", boxShadow: "0 8px 30px #0001" }}>
+        <h1 style={{ color: "#102b50", textAlign: "center" }}>WIN GROUP</h1>
+        <p style={{ textAlign: "center", color: "#64748b" }}>Business Management Portal</p>
 
-        <p style={{ textAlign: "center" }}>
-          Wolf Independent National Group
-        </p>
-
-        <h2>Secure Login</h2>
+        <h2 style={{ color: "#102b50", marginTop: "30px" }}>Secure Login</h2>
 
         <label>Email Address</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            margin: "10px 0 20px",
-            boxSizing: "border-box"
-          }}
-        />
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+          style={{ width: "100%", padding: "12px", margin: "8px 0 18px", border: "1px solid #cbd5e1", borderRadius: "6px" }} />
 
         <label>Password</label>
+        <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+          style={{ width: "100%", padding: "12px", margin: "8px 0 18px", border: "1px solid #cbd5e1", borderRadius: "6px" }} />
 
-        <div style={{
-          display: "flex",
-          border: "1px solid #aaa",
-          borderRadius: "6px",
-          margin: "10px 0 20px"
-        }}>
-          <input
-            type={showPassword ? "text" : "password"}
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "12px",
-              border: "none",
-              outline: "none"
-            }}
-          />
+        {error && <p style={{ color: "red" }}>{error}</p>}
 
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            style={{
-              padding: "0 12px",
-              border: "none",
-              background: "white"
-            }}
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
-        </div>
-
-        {error && (
-          <p style={{
-            color: "red",
-            background: "#fff0f0",
-            padding: "10px",
-            overflowWrap: "anywhere"
-          }}>
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "14px",
-            background: "#102b50",
-            color: "white",
-            border: "none",
-            borderRadius: "7px",
-            cursor: "pointer"
-          }}
-        >
+        <button type="submit" disabled={loading}
+          style={{ width: "100%", padding: "14px", background: "#102b50", color: "white", border: "none", borderRadius: "7px", cursor: "pointer" }}>
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        <p style={{ textAlign: "center", fontSize: "12px" }}>
-          Authorized users only
-        </p>
+        <p style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>Authorized users only</p>
       </form>
     </main>
   );
 }
-
