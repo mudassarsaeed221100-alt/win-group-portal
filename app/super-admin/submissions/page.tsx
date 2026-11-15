@@ -1,234 +1,114 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
-type Submission = {
-  id: string;
-  task_id: string;
-  user_id: string;
-  work_description: string;
-  proof_url: string | null;
-  status: string;
-  earning_amount: number | null;
-  reviewed_at: string | null;
-  created_at: string;
-};
-
-function badge(status: string) {
-  if (status === "approved") return "rounded-full px-3 py-1 text-xs font-semibold bg-green-900/50 text-green-300";
-  if (status === "rejected") return "rounded-full px-3 py-1 text-xs font-semibold bg-red-900/50 text-red-300";
-  return "rounded-full px-3 py-1 text-xs font-semibold bg-orange-900/50 text-orange-300";
-}
-
 export default function SubmissionsPage() {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [taskMap, setTaskMap] = useState<Record<string, string>>({});
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState("all");
+  const [subs, setSubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [processing, setProcessing] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  const [filter, setFilter] = useState("pending");
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState("");
 
-  async function loadSubmissions() {
-    setLoading(true);
-    setMessage("");
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) throw new Error("Please login first.");
-      const userId = data.session.user.id;
-
-      // Staff ke naam API se
-      const res = await fetch("/api/admin/users", {
-        headers: { Authorization: "Bearer " + data.session.access_token },
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Staff list load nahi hui.");
-      const names: Record<string, string> = {};
-      for (const p of result.staff || []) {
-        names[p.id] = [p.first_name, p.surname].filter(Boolean).join(" ") || p.username;
-      }
-      setNameMap(names);
-
-      // Mere banaye hue tasks
-      const { data: tasks, error: taskError } = await supabase
-        .from("staff_tasks")
-        .select("id, text")
-        .eq("created_by", userId);
-      if (taskError) throw taskError;
-
-      const tMap: Record<string, string> = {};
-      for (const t of tasks || []) tMap[t.id] = t.text;
-      setTaskMap(tMap);
-
-      if (!tasks || tasks.length === 0) {
-        setSubmissions([]);
-        return;
-      }
-
-      const { data: records, error } = await supabase
-        .from("submissions")
-        .select("*")
-        .in("task_id", tasks.map((t) => t.id))
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-
-      setSubmissions(records || []);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Data load nahi hua.");
-    } finally {
-      setLoading(false);
-    }
+  async function headers() {
+    const { data } = await supabase.auth.getSession();
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${data.session?.access_token || ""}`,
+    };
   }
 
-  async function review(sub: Submission, status: "approved" | "rejected") {
-    const amount = status === "approved" ? Number(amounts[sub.id] || 0) : 0;
-    if (status === "approved" && (!Number.isFinite(amount) || amount < 0)) {
-      setMessage("Sahi earning amount likhein.");
-      return;
-    }
-
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      setMessage("Dobara login karein.");
-      return;
-    }
-
-    setProcessing(sub.id);
-    setMessage("");
-
-    const { error } = await supabase
-      .from("submissions")
-      .update({
-        status,
-        earning_amount: amount,
-        reviewed_by: data.session.user.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", sub.id);
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage(status === "approved" ? "Submission approve ho gayi." : "Submission reject ho gayi.");
-      await loadSubmissions();
-    }
-    setProcessing(null);
+  async function load() {
+    setLoading(true);
+    const res = await fetch("/api/admin/submissions", { headers: await headers() });
+    const json = await res.json();
+    if (!res.ok) setMsg("❌ " + (json.error || "Load nahi hua"));
+    else setSubs(json.submissions || []);
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadSubmissions();
+    load();
   }, []);
 
-  const count = (st: string) => submissions.filter((x) => x.status === st).length;
-  const shown = filter === "all" ? submissions : submissions.filter((x) => x.status === filter);
+  async function review(s: any, action: "approve" | "reject") {
+    const amount = amounts[s.id] ?? String(s.reward_amount || 0);
+    if (action === "approve" && !(Number(amount) > 0)) return setMsg("❌ Earning amount likhein");
+    if (action === "reject" && !confirm("Ye kaam reject karna hai?")) return;
+    setBusy(s.id);
+    setMsg("");
+    const res = await fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: await headers(),
+      body: JSON.stringify({ id: s.id, action, amount }),
+    });
+    const json = await res.json();
+    setBusy("");
+    if (!res.ok) return setMsg("❌ " + (json.error || "Nahi hua"));
+    setMsg(action === "approve" ? "✅ Approve ho gaya, kamai staff ke account mein chali gayi" : "✅ Reject ho gaya");
+    load();
+  }
+
+  const count = (k: string) => subs.filter((s) => k === "all" || s.status === k).length;
+  const shown = subs.filter((s) => filter === "all" || s.status === filter);
+
+  const card: React.CSSProperties = { background: "#111", border: "1px solid #2a2a2a", borderRadius: 14, padding: 20, marginBottom: 20 };
+  const btn = (bg: string): React.CSSProperties => ({ background: bg, color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontSize: 13, marginRight: 6 });
+  const badge = (st: string) => (st === "approved" ? "#14532d" : st === "rejected" ? "#7f1d1d" : "#78350f");
 
   return (
-    <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold">Staff Submissions</h1>
-            <p className="mt-2 text-slate-400">Staff ka kaam check karein aur earning approve karein.</p>
-          </div>
-          <button onClick={loadSubmissions} className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-700">
-            Refresh
-          </button>
+    <div style={{ color: "#eee" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>📥 Submissions</h1>
+      <p style={{ color: "#888", marginBottom: 20 }}>Staff ka bheja hua kaam check karein, approve ya reject karein.</p>
+
+      {msg && <div style={{ ...card, padding: 12 }}>{msg}</div>}
+
+      <div style={card}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {[["pending", "⏳ Pending"], ["approved", "✅ Approved"], ["rejected", "❌ Rejected"], ["all", "Sab"]].map(([k, l]) => (
+            <button key={k} style={btn(filter === k ? "#444" : "#1f1f1f")} onClick={() => setFilter(k)}>
+              {l} ({count(k)})
+            </button>
+          ))}
+          <button style={btn("#1f1f1f")} onClick={load}>↻ Refresh</button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Pending</p>
-            <h2 className="mt-2 text-3xl font-bold text-orange-400">{count("pending")}</h2>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Approved</p>
-            <h2 className="mt-2 text-3xl font-bold text-green-400">{count("approved")}</h2>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Rejected</p>
-            <h2 className="mt-2 text-3xl font-bold text-red-400">{count("rejected")}</h2>
-          </div>
-        </div>
-
-        {message && <div className="rounded-lg bg-slate-800 p-3 text-sm">{message}</div>}
-
-        <div className="flex justify-end">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm">
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <p className="py-10 text-center text-slate-400">Loading submissions...</p>
-        ) : shown.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
-            Koi submission nahi mili.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {shown.map((sub) => (
-              <div key={sub.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold">{nameMap[sub.user_id] || "Staff"}</h3>
-                    <p className="mt-1 text-sm text-slate-400">Task: {taskMap[sub.task_id] || "Task"}</p>
-                  </div>
-                  <span className={badge(sub.status)}>{sub.status}</span>
-                </div>
-
-                <p className="mt-4 text-sm font-semibold text-slate-300">Work Description</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-400">{sub.work_description}</p>
-
-                {sub.proof_url && (
-                  <a href={sub.proof_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-blue-400 underline">
-                    View Work Proof
-                  </a>
-                )}
-
-                <p className="mt-3 text-xs text-slate-500">
-                  Submitted: {new Date(sub.created_at).toLocaleString()}
-                </p>
-
-                {sub.status === "pending" ? (
-                  <div className="mt-5 flex flex-wrap items-end gap-3 border-t border-slate-800 pt-4">
-                    <div className="w-full sm:max-w-xs">
-                      <label className="mb-1 block text-sm text-slate-300">Staff Earning Amount (Rs.)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={amounts[sub.id] || ""}
-                        onChange={(e) => setAmounts({ ...amounts, [sub.id]: e.target.value })}
-                        placeholder="Amount likhein"
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
-                      />
-                    </div>
-                    <button onClick={() => review(sub, "approved")} disabled={processing === sub.id} className="rounded-lg bg-green-600 px-4 py-2 hover:bg-green-700 disabled:opacity-50">
-                      Approve
-                    </button>
-                    <button onClick={() => review(sub, "rejected")} disabled={processing === sub.id} className="rounded-lg bg-red-600 px-4 py-2 hover:bg-red-700 disabled:opacity-50">
-                      Reject
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-4 border-t border-slate-800 pt-3 text-sm text-slate-300">
-                    Earning Amount: Rs. {sub.earning_amount ?? 0}
-                    {sub.reviewed_at && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Reviewed: {new Date(sub.reviewed_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
+        {loading ? <p>Load ho raha hai...</p> : shown.length === 0 ? <p style={{ color: "#777" }}>Koi submission nahi</p> : (
+          shown.map((s) => (
+            <div key={s.id} style={{ borderTop: "1px solid #222", padding: "14px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                <b style={{ fontSize: 16 }}>{s.task_title}</b>
+                <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 20, background: badge(s.status) }}>{s.status}</span>
               </div>
-            ))}
-          </div>
+              <p style={{ fontSize: 13, color: "#888", margin: "4px 0" }}>
+                👤 {s.staff_name} &nbsp; | &nbsp; 📅 {new Date(s.created_at).toLocaleString()} &nbsp; | &nbsp; 💰 Task reward: Rs. {s.reward_amount}
+              </p>
+              {s.work_description && <p style={{ color: "#bbb", margin: "6px 0" }}>{s.work_description}</p>}
+              {s.proof_url && (
+                <a href={s.proof_url} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", fontSize: 13 }}>🔗 Proof dekhein</a>
+              )}
+
+              {s.status === "pending" ? (
+                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    type="number"
+                    value={amounts[s.id] ?? String(s.reward_amount || 0)}
+                    onChange={(e) => setAmounts({ ...amounts, [s.id]: e.target.value })}
+                    style={{ width: 120, padding: "7px 10px", background: "#0a0a0a", border: "1px solid #333", borderRadius: 8, color: "#fff" }}
+                  />
+                  <button style={btn("#16a34a")} disabled={busy === s.id} onClick={() => review(s, "approve")}>✅ Approve</button>
+                  <button style={btn("#b91c1c")} disabled={busy === s.id} onClick={() => review(s, "reject")}>❌ Reject</button>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: "#888", marginTop: 6 }}>
+                  {s.status === "approved" ? `💵 Earning: Rs. ${s.earning_amount}` : "Reject kiya gaya"}
+                  {s.reviewed_at ? ` · ${new Date(s.reviewed_at).toLocaleString()}` : ""}
+                </p>
+              )}
+            </div>
+          ))
         )}
       </div>
-    </main>
+    </div>
   );
 }
