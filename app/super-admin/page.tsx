@@ -1,339 +1,229 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
-type Task = { id: string; text: string; assigned_to: string; status: string; due_date: string | null };
-type Sub = { id: string; task_id: string; user_id: string; status: string; earning_amount: number | null; reviewed_at: string | null; created_at: string };
-type Msg = { id: string; sender_id: string; content: string; created_at: string };
-type Person = { id: string; username: string; first_name: string | null; surname: string | null; phone: string | null };
-type Me = { first_name: string | null; surname: string | null; phone: string | null; avatar_url: string | null; username: string; role: string; team_code: string | null };
-
-const modules = [
-  { name: "Create Staff", href: "/super-admin/create-staff", icon: "◈", desc: "Staff banayein aur manage karein" },
-  { name: "Team Management", href: "/super-admin/team-management", icon: "☷", desc: "Team members aur team code" },
-  { name: "Work Tasks", href: "/super-admin/work-tasks", icon: "▣", desc: "Staff ko tasks dein" },
-  { name: "Submissions", href: "/super-admin/submissions", icon: "▤", desc: "Kaam approve ya reject karein" },
-  { name: "Staff Performance", href: "/super-admin/staff-performance", icon: "▥", desc: "Ranking aur report" },
-  { name: "Staff Earnings", href: "/super-admin/staff-earnings", icon: "₹", desc: "Staff ki kamai" },
-  { name: "Team Communication", href: "/super-admin/team-communication", icon: "✉", desc: "Announcement aur chat" },
-];
-
-const box = "w-full rounded-lg border border-slate-700 bg-slate-950 p-3";
-const card = "rounded-xl border border-slate-800 bg-slate-900 p-5";
-
-function money(n: number) {
-  return "Rs. " + n.toLocaleString("en-PK");
-}
-
-export default function SuperAdminHome() {
-  const [tab, setTab] = useState<"dashboard" | "profile" | "settings">("dashboard");
-  const [myId, setMyId] = useState("");
-  const [me, setMe] = useState<Me | null>(null);
-  const [people, setPeople] = useState<Person[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [subs, setSubs] = useState<Sub[]>([]);
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+export default function SuperAdminDashboard() {
+  const [tab, setTab] = useState("dashboard");
+  const [me, setMe] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [subs, setSubs] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
 
-  const [firstName, setFirstName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [phone, setPhone] = useState("");
-  const [avatar, setAvatar] = useState("");
-  const [pass1, setPass1] = useState("");
-  const [pass2, setPass2] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [fn, setFn] = useState("");
+  const [sn, setSn] = useState("");
+  const [ph, setPh] = useState("");
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
 
   async function load() {
     setLoading(true);
-    setError("");
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) throw new Error("Please login first.");
-      const uid = data.session.user.id;
-      setMyId(uid);
+    setMsg("");
+    const { data: s } = await supabase.auth.getSession();
+    const token = s.session?.access_token || "";
+    const uid = s.session?.user?.id;
+    const h = { Authorization: `Bearer ${token}` };
 
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("first_name, surname, phone, avatar_url, username, role, team_code")
-        .eq("id", uid)
-        .maybeSingle();
-      if (!p) throw new Error("Profile nahi mili.");
-      setMe(p);
-      setFirstName(p.first_name || "");
-      setSurname(p.surname || "");
-      setPhone(p.phone || "");
-      setAvatar(p.avatar_url || "");
-
-      const res = await fetch("/api/admin/users", {
-        headers: { Authorization: "Bearer " + data.session.access_token },
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Staff list load nahi hui.");
-      setPeople(result.staff || []);
-
-      const { data: t } = await supabase
-        .from("staff_tasks")
-        .select("id, text, assigned_to, status, due_date")
-        .eq("created_by", uid)
-        .order("created_at", { ascending: false });
-      setTasks(t || []);
-
-      if (t && t.length > 0) {
-        const { data: s } = await supabase
-          .from("submissions")
-          .select("id, task_id, user_id, status, earning_amount, reviewed_at, created_at")
-          .in("task_id", t.map((x) => x.id))
-          .order("created_at", { ascending: false });
-        setSubs(s || []);
-      } else setSubs([]);
-
-      if (p.team_code) {
-        const { data: m } = await supabase
-          .from("team_messages")
-          .select("id, sender_id, content, created_at")
-          .eq("team_code", p.team_code)
-          .is("receiver_id", null)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        setMsgs(m || []);
+    if (uid) {
+      const { data: p } = await supabase.from("profiles").select("*").eq("id", uid).single();
+      if (p) {
+        setMe(p);
+        setFn(p.first_name || ""); setSn(p.surname || ""); setPh(p.phone || "");
+        if (p.team_code) {
+          const { data: m } = await supabase
+            .from("team_messages")
+            .select("id, content, created_at")
+            .eq("team_code", p.team_code)
+            .is("receiver_id", null)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          setNews(m || []);
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Data load nahi hua.");
-    } finally {
-      setLoading(false);
     }
+
+    const [r1, r2, r3] = await Promise.all([
+      fetch("/api/admin/stats", { headers: h }),
+      fetch("/api/admin/tasks", { headers: h }),
+      fetch("/api/admin/submissions", { headers: h }),
+    ]);
+    const j1 = await r1.json(); const j2 = await r2.json(); const j3 = await r3.json();
+    if (!r1.ok) setMsg("❌ " + (j1.error || "Data load nahi hua"));
+    setStats(j1);
+    setTasks(j2.tasks || []);
+    setSubs(j3.submissions || []);
+    setLoading(false);
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  function go(t: "dashboard" | "profile" | "settings") {
-    setTab(t);
-    setMessage("");
-    setError("");
+  async function saveProfile() {
+    if (!me) return;
+    const { error } = await supabase.from("profiles")
+      .update({ first_name: fn, surname: sn, phone: ph }).eq("id", me.id);
+    setMsg(error ? "❌ " + error.message : "✅ Profile save ho gayi");
+    if (!error) load();
   }
 
-  async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage("");
-    setError("");
-    const { error } = await supabase
-      .from("profiles")
-      .update({ first_name: firstName.trim(), surname: surname.trim(), phone: phone.trim() || null, avatar_url: avatar.trim() || null })
-      .eq("id", myId);
-    setBusy(false);
-    if (error) return setError(error.message);
-    setMessage("Profile update ho gayi! Sidebar mein naya naam dekhne ke liye page refresh karein.");
-    load();
+  async function changePassword() {
+    if (pw1.length < 6) return setMsg("❌ Password kam az kam 6 characters ka ho");
+    if (pw1 !== pw2) return setMsg("❌ Dono password ek jaise nahi");
+    const { error } = await supabase.auth.updateUser({ password: pw1 });
+    setMsg(error ? "❌ " + error.message : "✅ Password badal gaya");
+    if (!error) { setPw1(""); setPw2(""); }
   }
 
-  async function changePassword(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-    if (pass1.length < 8) return setError("Password kam az kam 8 characters ka ho.");
-    if (pass1 !== pass2) return setError("Dono password ek jaise nahi hain.");
-    setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: pass1 });
-    setBusy(false);
-    if (error) return setError(error.message);
-    setPass1("");
-    setPass2("");
-    setMessage("Password badal gaya!");
-  }
+  const staff: any[] = stats?.staff || [];
+  const earnings: any[] = stats?.earnings || [];
+  const now = new Date();
+  const pendingSubs = subs.filter((s) => s.status === "pending");
+  const activeTasks = tasks.filter((t) => t.status === "active");
+  const lateTasks = activeTasks.filter((t) => t.deadline && new Date(t.deadline) < now);
+  const totalEarn = earnings.reduce((a, e) => a + Number(e.amount || 0), 0);
+  const unpaid = earnings.filter((e) => e.payment_status !== "paid").reduce((a, e) => a + Number(e.amount || 0), 0);
+  const nm = (s: any) => `${s.first_name || ""} ${s.surname || ""}`.trim() || s.username || "—";
+  const found = search ? staff.filter((s) => nm(s).toLowerCase().includes(search.toLowerCase())) : [];
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const card: React.CSSProperties = { background: "#111", border: "1px solid #2a2a2a", borderRadius: 14, padding: 18 };
+  const input: React.CSSProperties = { width: "100%", padding: "10px 12px", background: "#0a0a0a", border: "1px solid #333", borderRadius: 10, color: "#fff", marginBottom: 10, fontSize: 14 };
+  const btn = (bg: string): React.CSSProperties => ({ background: bg, color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", cursor: "pointer", fontSize: 14, marginRight: 6 });
 
-  const pendingTasks = tasks.filter((t) => t.status !== "completed").length;
-  const lateTasks = tasks.filter((t) => t.status !== "completed" && t.due_date && new Date(t.due_date) < today).length;
-  const pendingSubs = subs.filter((s) => s.status === "pending").length;
-  const monthEarning = subs
-    .filter((s) => s.status === "approved" && new Date(s.reviewed_at || s.created_at) >= monthStart)
-    .reduce((sum, s) => sum + Number(s.earning_amount || 0), 0);
-
-  const nameOf = (id: string) => {
-    if (id === myId) return "Aap";
-    const p = people.find((x) => x.id === id);
-    return p ? [p.first_name, p.surname].filter(Boolean).join(" ") || p.username : "Staff";
-  };
-  const taskName = (id: string) => tasks.find((t) => t.id === id)?.text || "Task";
-  const myName = [me?.first_name, me?.surname].filter(Boolean).join(" ") || me?.username || "";
-  const term = search.toLowerCase().trim();
-  const found = term
-    ? people.filter((p) => ([p.first_name, p.surname, p.username].join(" ") + " " + (p.phone || "")).toLowerCase().includes(term))
-    : [];
-
-  const stats = [
-    { title: "Total Staff", value: String(people.length), icon: "◈" },
-    { title: "Pending Tasks", value: String(pendingTasks), icon: "▣" },
-    { title: "Late Tasks", value: String(lateTasks), icon: "◷" },
-    { title: "Pending Submissions", value: String(pendingSubs), icon: "▤" },
-    { title: "Is Mahine ki Kamai", value: money(monthEarning), icon: "₹" },
+  const modules = [
+    ["👤", "Create Staff", "/super-admin/create-staff"],
+    ["👥", "Team Management", "/super-admin/team-management"],
+    ["📋", "Work Tasks", "/super-admin/work-tasks"],
+    ["📥", "Submissions", "/super-admin/submissions"],
+    ["💵", "Staff Earnings", "/super-admin/staff-earnings"],
+    ["📈", "Staff Performance", "/super-admin/staff-performance"],
+    ["💬", "Team Communication", "/super-admin/team-communication"],
   ];
 
-  const tabBtn = (active: boolean) =>
-    "rounded-lg border px-4 py-2 text-sm " + (active ? "bg-blue-600 border-slate-700 font-semibold" : "border-slate-700 text-slate-300 hover:bg-slate-800");
-
-  if (loading) return <p className="text-slate-400">Loading...</p>;
-
   return (
-    <div className="space-y-6 text-white">
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => go("dashboard")} className={tabBtn(tab === "dashboard")}>◆ Dashboard</button>
-        <button onClick={() => go("profile")} className={tabBtn(tab === "profile")}>◉ Profile Edit</button>
-        <button onClick={() => go("settings")} className={tabBtn(tab === "settings")}>⚙ Settings</button>
-        <button onClick={load} className="ml-auto rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">↻ Refresh</button>
+    <div style={{ color: "#eee" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+        {[["dashboard", "🏠 Dashboard"], ["profile", "✏️ Profile Edit"], ["settings", "⚙️ Settings"]].map(([k, l]) => (
+          <button key={k} style={btn(tab === k ? "#444" : "#1f1f1f")} onClick={() => { setTab(k); setMsg(""); }}>{l}</button>
+        ))}
+        <button style={btn("#1f1f1f")} onClick={load}>↻ Refresh</button>
       </div>
 
-      {message && <div className="rounded-lg border border-green-800 bg-green-900/30 p-3 text-green-300">{message}</div>}
-      {error && <div className="rounded-lg border border-red-800 bg-red-900/30 p-3 text-red-300">{error}</div>}
+      {msg && <div style={{ ...card, marginBottom: 16 }}>{msg}</div>}
 
       {tab === "dashboard" && (
         <>
-          <section className="rounded-xl border border-slate-700 bg-slate-900 p-7">
-            <p className="text-xs tracking-widest text-slate-400">◆ &nbsp; SUPER ADMIN CONTROL CENTER</p>
-            <h2 className="mt-3 text-3xl font-bold">Welcome, {myName}</h2>
-            <p className="mt-2 max-w-xl text-sm text-slate-400">
-              Apni team, tasks, submissions aur kamai ko ek hi jagah se manage karein.
+          <div style={{ ...card, marginBottom: 18, background: "linear-gradient(135deg,#1a1a1a,#0a0a0a)" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700 }}>👋 Khush aamdeed, {me ? nm(me) : "..."}</h1>
+            <p style={{ color: "#888", marginTop: 6 }}>
+              Role: <b>{me?.role || "—"}</b> &nbsp; | &nbsp; Team Code: <b>{me?.team_code || "—"}</b>
             </p>
-            <span className="mt-4 inline-block rounded border border-slate-700 px-3 py-1 text-xs tracking-widest text-slate-300">
-              TEAM CODE: {me?.team_code || "—"}
-            </span>
-          </section>
-
-          {pendingSubs > 0 && (
-            <Link href="/super-admin/submissions" className="block rounded-xl border border-yellow-700 bg-yellow-900/20 p-4 text-yellow-300">
-              ⚠ {pendingSubs} submission approve hone ka intezar kar rahi hain. Dekhne ke liye click karein →
-            </Link>
-          )}
-          {lateTasks > 0 && (
-            <Link href="/super-admin/staff-performance" className="block rounded-xl border border-red-800 bg-red-900/20 p-4 text-red-300">
-              ◷ {lateTasks} task ki deadline guzar chuki hai. Dekhne ke liye click karein →
-            </Link>
-          )}
-
-          <div>
-            <p className="text-xs tracking-widest text-slate-400">ORGANIZATION</p>
-            <h3 className="mb-4 mt-1 text-lg font-semibold">Team Overview</h3>
-            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
-              {stats.map((s) => (
-                <div key={s.title} className={card}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">{s.title}</span>
-                    <span className="grid h-8 w-8 place-items-center rounded-lg border border-slate-700">{s.icon}</span>
-                  </div>
-                  <h2 className="mt-3 text-2xl font-bold">{s.value}</h2>
-                </div>
-              ))}
-            </div>
           </div>
 
-          <section className={card}>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className={box} placeholder="⌕ Staff dhoondein (naam, username, phone)..." />
-            {term && (
-              <div className="mt-3 text-sm">
-                {found.length === 0 ? (
-                  <p className="text-slate-400">Koi staff nahi mila.</p>
-                ) : (
-                  found.map((p) => (
-                    <div key={p.id} className="flex justify-between border-t border-slate-800 py-2">
-                      <span>{nameOf(p.id)} <span className="text-slate-500">@{p.username}</span></span>
-                      <span className="text-slate-400">{p.phone || "—"}</span>
-                    </div>
-                  ))
-                )}
+          {(pendingSubs.length > 0 || lateTasks.length > 0) && (
+            <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+              {pendingSubs.length > 0 && (
+                <Link href="/super-admin/submissions" style={{ ...card, borderColor: "#a16207", color: "#fbbf24", textDecoration: "none" }}>
+                  ⏳ {pendingSubs.length} submissions review ka intezar kar rahi hain →
+                </Link>
+              )}
+              {lateTasks.length > 0 && (
+                <Link href="/super-admin/work-tasks" style={{ ...card, borderColor: "#7f1d1d", color: "#f87171", textDecoration: "none" }}>
+                  ⏰ {lateTasks.length} tasks ki deadline guzar chuki hai →
+                </Link>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 18 }}>
+            {[["👥 Staff", staff.length], ["📋 Active Tasks", activeTasks.length], ["⏳ Pending Review", pendingSubs.length],
+              ["💰 Total Kamai", "Rs. " + totalEarn.toLocaleString()], ["🕒 Unpaid", "Rs. " + unpaid.toLocaleString()]].map(([l, v]) => (
+              <div key={l as string} style={card}>
+                <div style={{ color: "#888", fontSize: 13 }}>{l}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{loading ? "..." : v}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...card, marginBottom: 18 }}>
+            <input style={{ ...input, marginBottom: 0 }} placeholder="🔍 Staff dhoondein" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {search && (
+              <div style={{ marginTop: 10 }}>
+                {found.length === 0 ? <p style={{ color: "#777" }}>Koi nahi mila</p> :
+                  found.map((s) => <p key={s.id} style={{ padding: "6px 0", borderBottom: "1px solid #1a1a1a" }}>👤 {nm(s)} <span style={{ color: "#777" }}>@{s.username}</span></p>)}
               </div>
             )}
-          </section>
-
-          <div>
-            <p className="text-xs tracking-widest text-slate-400">QUICK ACCESS</p>
-            <h3 className="mb-4 mt-1 text-lg font-semibold">Modules</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {modules.map((m) => (
-                <Link key={m.href} href={m.href} className={card + " hover:bg-slate-800"}>
-                  <div className="text-2xl">{m.icon}</div>
-                  <h3 className="mt-3 font-semibold">{m.name}</h3>
-                  <p className="mt-1 text-sm text-slate-400">{m.desc}</p>
-                </Link>
-              ))}
-            </div>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
-            <section className={card}>
-              <h2 className="mb-3 font-semibold">▣ Naye Tasks</h2>
-              {tasks.length === 0 ? <p className="text-sm text-slate-400">Abhi koi task nahi.</p> : tasks.slice(0, 5).map((t) => (
-                <div key={t.id} className="border-t border-slate-800 py-2 text-sm">
-                  <p className="font-medium">{t.text}</p>
-                  <p className="text-xs text-slate-400">{nameOf(t.assigned_to)} · {t.status}</p>
-                </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 18 }}>
+            {modules.map(([i, l, href]) => (
+              <Link key={href} href={href} style={{ ...card, color: "#eee", textDecoration: "none" }}>
+                <div style={{ fontSize: 26 }}>{i}</div>
+                <div style={{ fontWeight: 600, marginTop: 6 }}>{l}</div>
+              </Link>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+            <div style={card}>
+              <b>📋 Naye Tasks</b>
+              {tasks.slice(0, 5).map((t) => (
+                <p key={t.id} style={{ fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                  {t.title} <span style={{ color: "#777" }}>· Rs. {t.reward_amount}</span>
+                </p>
               ))}
-            </section>
-            <section className={card}>
-              <h2 className="mb-3 font-semibold">▤ Nayi Submissions</h2>
-              {subs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi submission nahi.</p> : subs.slice(0, 5).map((s) => (
-                <div key={s.id} className="border-t border-slate-800 py-2 text-sm">
-                  <p className="font-medium">{nameOf(s.user_id)}</p>
-                  <p className="text-xs text-slate-400">{taskName(s.task_id)} · {s.status}</p>
-                </div>
+              {tasks.length === 0 && <p style={{ color: "#777", fontSize: 13, marginTop: 8 }}>Koi task nahi</p>}
+            </div>
+            <div style={card}>
+              <b>📥 Nayi Submissions</b>
+              {subs.slice(0, 5).map((s) => (
+                <p key={s.id} style={{ fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                  {s.staff_name} · {s.task_title} <span style={{ color: "#777" }}>({s.status})</span>
+                </p>
               ))}
-            </section>
-            <section className={card}>
-              <h2 className="mb-3 font-semibold">✉ Announcements</h2>
-              {msgs.length === 0 ? <p className="text-sm text-slate-400">Abhi koi announcement nahi.</p> : msgs.map((m) => (
-                <div key={m.id} className="border-t border-slate-800 py-2 text-sm">
-                  <p>{m.content}</p>
-                  <p className="text-xs text-slate-400">{nameOf(m.sender_id)} · {new Date(m.created_at).toLocaleDateString()}</p>
-                </div>
+              {subs.length === 0 && <p style={{ color: "#777", fontSize: 13, marginTop: 8 }}>Koi submission nahi</p>}
+            </div>
+            <div style={card}>
+              <b>📢 Announcements</b>
+              {news.map((n) => (
+                <p key={n.id} style={{ fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                  {n.content} <span style={{ color: "#777" }}>· {new Date(n.created_at).toLocaleDateString()}</span>
+                </p>
               ))}
-            </section>
+              {news.length === 0 && <p style={{ color: "#777", fontSize: 13, marginTop: 8 }}>Koi announcement nahi</p>}
+            </div>
           </div>
         </>
       )}
 
       {tab === "profile" && (
-        <form onSubmit={saveProfile} className={card + " max-w-2xl space-y-4"}>
-          <h2 className="text-xl font-semibold">◉ Profile Edit</h2>
-          <p className="text-sm text-slate-400">@{me?.username} · {me?.role === "super_admin" ? "Super Admin" : "Admin"}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={box} placeholder="First Name" />
-            <input value={surname} onChange={(e) => setSurname(e.target.value)} className={box} placeholder="Surname" />
-          </div>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={box} placeholder="Phone Number" />
-          <input value={avatar} onChange={(e) => setAvatar(e.target.value)} className={box} placeholder="Profile photo ka link (https://...)" />
-          <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold disabled:opacity-50">
-            {busy ? "Saving..." : "Save Profile"}
-          </button>
-        </form>
+        <div style={{ ...card, maxWidth: 500 }}>
+          <h2 style={{ fontSize: 18, marginBottom: 12 }}>✏️ Profile Edit</h2>
+          <input style={input} placeholder="First name" value={fn} onChange={(e) => setFn(e.target.value)} />
+          <input style={input} placeholder="Surname" value={sn} onChange={(e) => setSn(e.target.value)} />
+          <input style={input} placeholder="Phone" value={ph} onChange={(e) => setPh(e.target.value)} />
+          <input style={{ ...input, opacity: 0.6 }} value={me?.email || ""} disabled />
+          <button style={btn("#16a34a")} onClick={saveProfile}>💾 Save</button>
+        </div>
       )}
 
       {tab === "settings" && (
-        <div className="max-w-2xl space-y-5">
-          <section className={card + " space-y-4"}>
-            <h2 className="text-xl font-semibold">◇ Team Code</h2>
-            <p className="text-slate-400">Maujooda code: <b className="text-white">{me?.team_code || "—"}</b></p>
-            <p className="text-sm text-slate-500">🔒 Team Code Founder deta hai. Aap ise badal nahi sakte.</p>
-          </section>
-          <form onSubmit={changePassword} className={card + " space-y-4"}>
-            <h2 className="text-xl font-semibold">⚙ Password Badlein</h2>
-            <input type="password" value={pass1} onChange={(e) => setPass1(e.target.value)} className={box} placeholder="Naya password (kam az kam 8)" />
-            <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} className={box} placeholder="Naya password dobara" />
-            <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-6 py-3 font-semibold disabled:opacity-50">
-              {busy ? "Saving..." : "Change Password"}
-            </button>
-          </form>
+        <div style={{ display: "grid", gap: 12, maxWidth: 500 }}>
+          <div style={card}>
+            <b>🔒 Team Code</b>
+            <p style={{ fontSize: 22, fontWeight: 700, margin: "8px 0" }}>{me?.team_code || "—"}</p>
+            <p style={{ color: "#888", fontSize: 13 }}>Team Code Founder deta hai, aap ise badal nahi sakte.</p>
+          </div>
+          <div style={card}>
+            <h2 style={{ fontSize: 18, marginBottom: 12 }}>🔑 Password Badlein</h2>
+            <input style={input} type="password" placeholder="Naya password" value={pw1} onChange={(e) => setPw1(e.target.value)} />
+            <input style={input} type="password" placeholder="Dobara likhein" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            <button style={btn("#16a34a")} onClick={changePassword}>✅ Password Badlein</button>
+          </div>
         </div>
       )}
     </div>
   );
-}
+                  }
