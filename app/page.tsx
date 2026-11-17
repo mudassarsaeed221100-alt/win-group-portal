@@ -48,7 +48,8 @@ export default function LoginPage() {
     }
 
     if (p.role === "founder_owner") router.push("/dashboard");
-    else if (p.role === "super_admin" || p.role === "admin") router.push("/super-admin");
+    else if (p.role === "super_admin") router.push("/super-admin");   
+    else if (p.role === "admin") router.push("/admin");
     else router.push("/staff");
   }
 
