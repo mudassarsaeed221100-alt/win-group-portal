@@ -47,4 +47,11 @@ export async function GET(request: NextRequest) {
       .select("id, user_id, status, earning_amount, created_at")
       .in("user_id", staffIds)
       .order("created_at", { ascending: false });
-    if (recordsError)
+    if (recordsError) throw recordsError;
+
+    return NextResponse.json({ records: records || [], staff: staff || [] });
+  } catch (error) {
+    console.error("Admin reports error:", error);
+    return NextResponse.json({ error: "Reports load nahi ho sake." }, { status: 500 });
+  }
+}
