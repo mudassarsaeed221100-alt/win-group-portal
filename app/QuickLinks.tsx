@@ -39,6 +39,7 @@ export default function QuickLinks() {
             <>
               <a href="/payment-verification" style={item}>💳 Payment Verification</a>
               <a href="/founder-support" style={item}>🆘 Support (Help / Complaint)</a>
+              <a href="/commission-report" style={item}>💰 Commission Report</a>
             </>
           )}
         </div>
