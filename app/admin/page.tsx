@@ -13,7 +13,7 @@ import StaffPerformance from "./StaffPerformance";
 import Notifications from "./Notifications";
 import ProfileSettings from "./ProfileSettings";
 import Support from "./Support";
-
+import MyEarnings from "../staff/MyEarnings";
 type Section =
   | "Overview"
   | "Staff Management"
@@ -25,7 +25,8 @@ type Section =
   | "Staff Performance"
   | "Notifications"
   | "Profile Settings"
-  | "Support";
+  | "Support"
+  | "My Earnings";
 
 type Staff = {
   id: string;
@@ -541,6 +542,8 @@ export default function AdminDashboard() {
           {activeSection === "Profile Settings" && <ProfileSettings />}
 
           {activeSection === "Support" && <Support />}
+          
+          {activeSection === "My Earnings" && <MyEarnings />}
         </div>
 
         <footer>
