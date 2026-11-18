@@ -35,6 +35,9 @@ export default function QuickLinks() {
       {open && (
         <div style={{ marginBottom: 8 }}>
           <a href="/invite" style={item}>🔗 Invite Link</a>
+                    {role === "super_admin" && (
+            <a href="/super-admin/my-earnings" style={item}>💵 My Earnings</a>
+          )}
                    {role === "founder_owner" && (
             <>
               <a href="/payment-verification" style={item}>💳 Payment Verification</a>
