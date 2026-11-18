@@ -92,9 +92,9 @@ export default function Support() {
               onChange={(e) => setReplies({ ...replies, [t.id]: e.target.value })}
               style={{ ...inputStyle, resize: "vertical" }}
             />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => reply(t, "in_progress")} style={btn("#2563eb")}>⏳ In Progress</button>
-              <button onClick={() => reply(t, "resolved")} style={btn("#059669")}>✅ Hal ho gaya</button>
+                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => reply(t, "in_progress")} style={btn("#2563eb")}>📤 Reply Bhejein</button>
+              <button onClick={() => reply(t, "resolved")} style={btn("#059669")}>✅ Reply + Masla Hal</button>
             </div>
           </div>
         ))
