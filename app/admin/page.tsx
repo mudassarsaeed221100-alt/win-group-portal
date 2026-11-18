@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -52,6 +51,18 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(localStorage.getItem("admin-theme") === "dark");
+  }, []);
+
+  function toggleTheme() {
+    const v = !dark;
+    setDark(v);
+    localStorage.setItem("admin-theme", v ? "dark" : "light");
+  }
+
   useEffect(() => {
     async function checkUser() {
       const {
@@ -76,6 +87,7 @@ export default function AdminDashboard() {
 
       setUsername(data.username || "");
       setLoading(false);
+      loadStaff();
     }
 
     checkUser();
@@ -200,7 +212,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <main className="app">
+    <main className={dark ? "app dark" : "app"}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-logo">W</div>
@@ -257,14 +269,20 @@ export default function AdminDashboard() {
             <h2>{activeSection}</h2>
           </div>
 
-          <div className="top-user">
-            <div className="status-dot" />
-            <div className="user-avatar">
-              {username.charAt(0).toUpperCase()}
-            </div>
-            <div className="user-details">
-              <strong>{username}</strong>
-              <span>Administrator</span>
+          <div className="top-right">
+            <button className="theme-btn" onClick={toggleTheme}>
+              {dark ? "☀️ Light" : "🌙 Dark"}
+            </button>
+
+            <div className="top-user">
+              <div className="status-dot" />
+              <div className="user-avatar">
+                {username.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-details">
+                <strong>{username}</strong>
+                <span>Administrator</span>
+              </div>
             </div>
           </div>
         </header>
@@ -340,7 +358,7 @@ export default function AdminDashboard() {
                     className="quick-action"
                     onClick={() => openSection("Task Management")}
                   >
-                    <strong>✓ Assign Staff Task</strong>
+                    <strong>✓ Team Tasks</strong>
                     <span>→</span>
                   </button>
 
@@ -364,7 +382,7 @@ export default function AdminDashboard() {
                     className="quick-action"
                     onClick={() => openSection("Support")}
                   >
-                    <strong>? Contact Support</strong>
+                    <strong>? Support Chat</strong>
                     <span>→</span>
                   </button>
                 </div>
@@ -534,6 +552,11 @@ export default function AdminDashboard() {
       <style jsx>{`
         * { box-sizing: border-box; }
         .app { min-height: 100vh; display: flex; background: #f3f6fb; color: #172c48; font-family: Arial, sans-serif; }
+        .dark { background: #0b0d10; }
+        .dark .main-area { background: #f3f6fb; filter: invert(0.92) hue-rotate(180deg); }
+        .dark .main-area :global(img) { filter: invert(1) hue-rotate(180deg); }
+        .top-right { display: flex; align-items: center; gap: 14px; }
+        .theme-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: #fff; color: #172c48; cursor: pointer; font-weight: 700; font-size: 13px; white-space: nowrap; }
         .loading { min-height: 100vh; display: grid; place-items: center; background: #f3f6fb; color: #142d4e; font-family: Arial; }
         .sidebar { width: 255px; min-height: 100vh; background: #10233f; color: white; padding: 25px 16px; display: flex; flex-direction: column; flex-shrink: 0; }
         .brand { display: flex; align-items: center; gap: 12px; padding: 5px 8px 30px; border-bottom: 1px solid #293d59; }
@@ -614,9 +637,6 @@ export default function AdminDashboard() {
         .staff-badge { color: #18885b; background: #e5f7ee; padding: 5px 9px; border-radius: 15px; font-size: 10px; }
         .list-message { color: #718096; font-size: 12px; padding: 15px 0; }
         .error-message { color: #bd3333; font-size: 12px; padding: 12px; background: #fff0f0; border-radius: 7px; }
-        .setting-row { display: flex; justify-content: space-between; gap: 15px; padding: 17px 0; border-top: 1px solid #edf0f5; font-size: 13px; }
-        .setting-row span { color: #8492a7; }
-        .green-text { color: #18885b; }
         footer { display: flex; justify-content: space-between; gap: 10px; padding: 18px 35px; border-top: 1px solid #e5eaf1; color: #94a0b0; font-size: 10px; }
         @media (max-width: 900px) {
           .sidebar { width: 215px; }
@@ -645,7 +665,6 @@ export default function AdminDashboard() {
           footer { padding: 15px; flex-wrap: wrap; }
           .form-panel { padding: 17px; }
           .panel-heading { align-items: flex-start; }
-          .setting-row { font-size: 11px; }
         }
       `}</style>
     </main>
