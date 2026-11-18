@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -25,6 +24,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
+  const [period, setPeriod] = useState("all");
 
   useEffect(() => {
     loadReports();
@@ -33,27 +33,16 @@ export default function Reports() {
   async function loadReports() {
     setLoading(true);
     setError("");
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError("Please login again.");
-        return;
-      }
+      if (!session) { setError("Please login again."); return; }
 
       const response = await fetch("/api/admin/reports", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || "Reports load nahi ho sake.");
-        return;
-      }
+      if (!response.ok) { setError(result.error || "Reports load nahi ho sake."); return; }
 
       setRecords(result.records || []);
       setStaff(result.staff || []);
@@ -64,143 +53,94 @@ export default function Reports() {
     }
   }
 
-  const filteredRecords =
-    filter === "All"
-      ? records
-      : records.filter(
-          (record) => record.status?.toLowerCase() === filter.toLowerCase()
-        );
+  const now = new Date();
+  const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startWeek = new Date(startDay); startWeek.setDate(startDay.getDate() - 6);
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fromDate = period === "today" ? startDay : period === "week" ? startWeek : period === "month" ? startMonth : null;
 
-  const totalEarnings = records.reduce(
-    (sum, record) => sum + Math.max(0, Number(record.earning_amount || 0)),
-    0
-  );
+  const inPeriod = records.filter((r) => !fromDate || new Date(r.created_at) >= fromDate);
+  const st = (r: ReportRecord) => (r.status || "").toLowerCase();
+  const filteredRecords = filter === "All" ? inPeriod : inPeriod.filter((r) => st(r) === filter.toLowerCase());
 
-  const approved = records.filter(
-    (record) => record.status?.toLowerCase() === "approved"
-  ).length;
-
-  const pending = records.filter(
-    (record) => record.status?.toLowerCase() === "pending"
-  ).length;
-
-  const rejected = records.filter(
-    (record) => record.status?.toLowerCase() === "rejected"
-  ).length;
+  const totalEarnings = inPeriod
+    .filter((r) => st(r) === "approved")
+    .reduce((sum, r) => sum + Math.max(0, Number(r.earning_amount || 0)), 0);
+  const approved = inPeriod.filter((r) => st(r) === "approved").length;
+  const pending = inPeriod.filter((r) => st(r) === "pending").length;
+  const rejected = inPeriod.filter((r) => st(r) === "rejected").length;
 
   function staffName(userId: string) {
-    const member = staff.find((item) => item.id === userId);
-
-    if (!member) return "Staff";
-
-    return (
-      [member.first_name, member.surname].filter(Boolean).join(" ") ||
-      member.username ||
-      "Staff"
-    );
+    const m = staff.find((x) => x.id === userId);
+    if (!m) return "Staff";
+    return [m.first_name, m.surname].filter(Boolean).join(" ") || m.username || "Staff";
   }
 
   function exportCSV() {
-    const headers = [
-      "Staff",
-      "Status",
-      "Earning Amount",
-      "Submission Date",
-    ];
-
-    const rows = filteredRecords.map((record) => [
-      staffName(record.user_id),
-      record.status || "Unknown",
-      String(record.earning_amount || 0),
-      new Date(record.created_at).toLocaleString(),
+    const headers = ["Staff", "Status", "Earning Amount", "Submission Date"];
+    const rows = filteredRecords.map((r) => [
+      staffName(r.user_id),
+      r.status || "Unknown",
+      String(r.earning_amount || 0),
+      new Date(r.created_at).toLocaleString(),
     ]);
-
     const csv = [headers, ...rows]
-      .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")
-      )
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\n");
-
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "admin-team-report.csv";
+    link.download = `admin-team-report-${period}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.heading}>Reports</h1>
-          <p style={styles.subtitle}>
-            Apni team ki submissions aur earnings reports dekhein.
-          </p>
-        </div>
+  const statusClass = (r: ReportRecord) =>
+    st(r) === "approved" ? "c-green" : st(r) === "rejected" ? "c-red" : "c-orange";
 
-        <div style={styles.actions}>
-          <button onClick={loadReports} style={styles.refreshButton}>
-            Refresh
+  return (
+    <div className="rep">
+      <div className="header">
+        <div>
+          <h1>Reports</h1>
+          <p className="sub">Apni team ki submissions aur earnings reports dekhein.</p>
+        </div>
+        <div className="actions">
+          <button className="btn-light" onClick={loadReports} disabled={loading}>
+            {loading ? "Loading..." : "↻ Refresh"}
           </button>
-          <button
-            onClick={exportCSV}
-            style={styles.exportButton}
-            disabled={loading || filteredRecords.length === 0}
-          >
-            Export CSV
+          <button className="btn-blue" onClick={exportCSV} disabled={loading || filteredRecords.length === 0}>
+            ⬇ Export CSV
           </button>
         </div>
       </div>
 
+      <div className="periods">
+        {[["today", "Aaj"], ["week", "7 Din"], ["month", "Is Mahine"], ["all", "Sab"]].map(([k, l]) => (
+          <button key={k} className={period === k ? "pill active" : "pill"} onClick={() => setPeriod(k)}>{l}</button>
+        ))}
+      </div>
+
       {loading ? (
-        <div style={styles.message}>Reports loading...</div>
+        <div className="msg">Reports loading...</div>
       ) : error ? (
-        <div style={styles.error}>{error}</div>
+        <div className="error">{error}</div>
       ) : (
         <>
-          <div style={styles.stats}>
-            <div style={styles.statCard}>
-              <span>Total Staff</span>
-              <strong>{staff.length}</strong>
-            </div>
-            <div style={styles.statCard}>
-              <span>Total Submissions</span>
-              <strong>{records.length}</strong>
-            </div>
-            <div style={styles.statCard}>
-              <span>Approved</span>
-              <strong style={{ color: "#059669" }}>{approved}</strong>
-            </div>
-            <div style={styles.statCard}>
-              <span>Pending</span>
-              <strong style={{ color: "#d97706" }}>{pending}</strong>
-            </div>
-            <div style={styles.statCard}>
-              <span>Rejected</span>
-              <strong style={{ color: "#dc2626" }}>{rejected}</strong>
-            </div>
-            <div style={styles.statCard}>
-              <span>Total Earnings</span>
-              <strong style={{ color: "#2563eb" }}>
-                Rs. {totalEarnings.toLocaleString()}
-              </strong>
-            </div>
+          <div className="stats">
+            <div className="card stat"><span>Total Staff</span><strong>{staff.length}</strong></div>
+            <div className="card stat"><span>Total Submissions</span><strong>{inPeriod.length}</strong></div>
+            <div className="card stat"><span>Approved</span><strong className="c-green">{approved}</strong></div>
+            <div className="card stat"><span>Pending</span><strong className="c-orange">{pending}</strong></div>
+            <div className="card stat"><span>Rejected</span><strong className="c-red">{rejected}</strong></div>
+            <div className="card stat"><span>Total Earnings</span><strong className="c-blue">Rs. {totalEarnings.toLocaleString()}</strong></div>
           </div>
 
-          <div style={styles.card}>
-            <div style={styles.tableHeader}>
-              <h2 style={styles.sectionTitle}>Submission Report</h2>
-
-              <select
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                style={styles.select}
-              >
+          <div className="card">
+            <div className="table-head">
+              <h2>Submission Report</h2>
+              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
                 <option value="All">All Statuses</option>
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
@@ -209,43 +149,20 @@ export default function Reports() {
             </div>
 
             {filteredRecords.length === 0 ? (
-              <div style={styles.message}>Koi report record nahi mila.</div>
+              <div className="msg">Koi report record nahi mila.</div>
             ) : (
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
+              <div className="wrap">
+                <table>
                   <thead>
-                    <tr>
-                      <th style={styles.th}>Staff</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.th}>Earnings</th>
-                      <th style={styles.th}>Submission Date</th>
-                    </tr>
+                    <tr><th>Staff</th><th>Status</th><th>Earnings</th><th>Submission Date</th></tr>
                   </thead>
                   <tbody>
-                    {filteredRecords.map((record) => (
-                      <tr key={record.id}>
-                        <td style={styles.td}>{staffName(record.user_id)}</td>
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.status,
-                              color:
-                                record.status?.toLowerCase() === "approved"
-                                  ? "#059669"
-                                  : record.status?.toLowerCase() === "rejected"
-                                  ? "#dc2626"
-                                  : "#d97706",
-                            }}
-                          >
-                            {record.status || "Unknown"}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          Rs. {Number(record.earning_amount || 0).toLocaleString()}
-                        </td>
-                        <td style={styles.td}>
-                          {new Date(record.created_at).toLocaleString()}
-                        </td>
+                    {filteredRecords.map((r) => (
+                      <tr key={r.id}>
+                        <td><strong>{staffName(r.user_id)}</strong></td>
+                        <td><span className={"b " + statusClass(r)}>{r.status || "Unknown"}</span></td>
+                        <td>Rs. {Number(r.earning_amount || 0).toLocaleString()}</td>
+                        <td>{new Date(r.created_at).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -255,98 +172,49 @@ export default function Reports() {
           </div>
         </>
       )}
+
+      <style jsx>{`
+        .rep { width: 100%; color: #172033; font-family: Arial, sans-serif; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+        h1 { font-size: 26px; font-weight: 700; margin: 0; }
+        .sub { color: #64748b; font-size: 14px; margin-top: 7px; }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-light { background: #e2e8f0; color: #334155; border: 0; padding: 11px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .btn-blue { background: #1d4ed8; color: #fff; border: 0; padding: 11px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .periods { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+        .pill { padding: 8px 16px; border-radius: 20px; border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .pill.active { background: #172554; color: #fff; border-color: #172554; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+        .stat { display: flex; flex-direction: column; gap: 12px; color: #64748b; font-size: 13px; padding: 18px; }
+        .stat strong { font-size: 22px; color: #172033; }
+        .table-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+        .table-head h2 { font-size: 18px; margin: 0; font-weight: 700; }
+        select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; }
+        .wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { padding: 12px; text-align: left; background: #f8fafc; color: #475569; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+        td { padding: 12px; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+        .b { font-weight: 700; text-transform: capitalize; }
+        .c-green { color: #059669 !important; } .c-orange { color: #d97706 !important; }
+        .c-red { color: #dc2626 !important; } .c-blue { color: #2563eb !important; }
+        .msg { padding: 25px; text-align: center; color: #64748b; }
+        .error { padding: 15px; color: #b91c1c; background: #fef2f2; border-radius: 8px; }
+
+        :global(.dark) .rep { color: #e5e7eb; }
+        :global(.dark) h1, :global(.dark) .table-head h2, :global(.dark) .stat strong, :global(.dark) td strong { color: #f1f3f5; }
+        :global(.dark) .card { background: #15181d; border-color: #262a31; }
+        :global(.dark) .stat, :global(.dark) .sub, :global(.dark) .msg { color: #aeb4bd; }
+        :global(.dark) .btn-light, :global(.dark) .pill { background: #1a1e24; color: #e5e7eb; border: 1px solid #2c313a; }
+        :global(.dark) .pill.active { background: #e5e7eb; color: #111; border-color: #e5e7eb; }
+        :global(.dark) select { background: #0f1216; color: #f1f3f5; border-color: #2c313a; }
+        :global(.dark) th { background: #111418; color: #858995; border-color: #262a31; }
+        :global(.dark) td { color: #cbd5e1; border-color: #262a31; }
+        :global(.dark) .c-green { color: #4ade80 !important; } :global(.dark) .c-orange { color: #fbbf24 !important; }
+        :global(.dark) .c-red { color: #f87171 !important; } :global(.dark) .c-blue { color: #60a5fa !important; }
+        :global(.dark) .error { background: #2b2022; color: #ffb4b4; }
+      `}</style>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { width: "100%", color: "#172033" },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 22,
-  },
-  heading: { fontSize: 26, fontWeight: 700, margin: 0 },
-  subtitle: { color: "#64748b", fontSize: 14, marginTop: 7 },
-  actions: { display: "flex", gap: 8, flexWrap: "wrap" },
-  refreshButton: {
-    background: "#e2e8f0",
-    color: "#334155",
-    border: 0,
-    padding: "11px 16px",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  exportButton: {
-    background: "#1d4ed8",
-    color: "#fff",
-    border: 0,
-    padding: "11px 16px",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  stats: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))",
-    gap: 14,
-    marginBottom: 20,
-  },
-  statCard: {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 12,
-    padding: 18,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    color: "#64748b",
-    fontSize: 13,
-  },
-  card: {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 12,
-    padding: 20,
-  },
-  tableHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 16,
-  },
-  sectionTitle: { fontSize: 18, margin: 0, fontWeight: 700 },
-  select: {
-    padding: 10,
-    border: "1px solid #cbd5e1",
-    borderRadius: 8,
-    background: "#fff",
-  },
-  tableWrapper: { overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", minWidth: 600 },
-  th: {
-    padding: 12,
-    textAlign: "left",
-    background: "#f8fafc",
-    color: "#475569",
-    fontSize: 13,
-    borderBottom: "1px solid #e2e8f0",
-  },
-  td: {
-    padding: 12,
-    fontSize: 13,
-    borderBottom: "1px solid #e2e8f0",
-  },
-  status: { fontWeight: 700 },
-  message: { padding: 25, textAlign: "center", color: "#64748b" },
-  error: {
-    padding: 15,
-    color: "#b91c1c",
-    background: "#fef2f2",
-    borderRadius: 8,
-  },
-};
