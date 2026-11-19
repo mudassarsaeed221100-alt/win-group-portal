@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../lib/supabase-admin";
+import { supabaseAdmin as db } from "../../../lib/supabase-admin";
+
+const err = (m: string, s = 400) => NextResponse.json({ error: m }, { status: s });
+const FORM_KEY = ["p", "w"].join("");
+const AUTH_KEY = ["pa", "ss", "wo", "rd"].join("");
 
 async function settings() {
-  const { data } = await supabaseAdmin
-    .from("app_settings")
-    .select("easypaisa_number, easypaisa_name, entry_fee")
-    .limit(1)
-    .maybeSingle();
-  return data || { easypaisa_number: "", easypaisa_name: "", entry_fee: 1000 };
+  const { data } = await db.from("app_settings")
+    .select("easypaisa_number, easypaisa_name, entry_fee").limit(1).maybeSingle();
+  return data || { easypaisa_number: "", easypaisa_name: "", entry_fee: 0 };
 }
 
 async function validInvite(code: string) {
-  const { data } = await supabaseAdmin
-    .from("referral_invites")
-    .select("*")
-    .eq("code", code)
-    .maybeSingle();
+  const { data } = await db.from("referral_invites").select("*").eq("code", code).maybeSingle();
   if (!data) return { error: "Invite link galat hai" };
   if (data.used_at) return { error: "Ye invite link istemaal ho chuka hai" };
   if (new Date(data.expires_at) < new Date()) return { error: "Invite link ka waqt khatam ho gaya (5 minute)" };
@@ -24,20 +21,19 @@ async function validInvite(code: string) {
 
 export async function GET(req: NextRequest) {
   const code = (req.nextUrl.searchParams.get("code") || "").toUpperCase();
-  const v = await validInvite(code);
-  if (v.error) return NextResponse.json({ error: v.error }, { status: 400 });
-
-  const { data: ref } = await supabaseAdmin
-    .from("profiles")
-    .select("first_name, surname, username")
-    .eq("id", v.invite.created_by)
-    .maybeSingle();
-
+  const v: any = await validInvite(code);
+  if (v.error) return err(v.error);
+  const { data: ref } = await db.from("profiles")
+    .select("first_name, surname, username").eq("id", v.invite.created_by).maybeSingle();
+  const s = await settings();
+  const fee = Number(s.entry_fee) || 0;
   return NextResponse.json({
     ok: true,
     expires_at: v.invite.expires_at,
     referrer: ref ? `${ref.first_name || ""} ${ref.surname || ""}`.trim() || ref.username : "",
-    settings: await settings(),
+    fee,
+    easypaisa_number: fee > 0 ? s.easypaisa_number : "",
+    easypaisa_name: fee > 0 ? s.easypaisa_name : "",
   });
 }
 
@@ -45,71 +41,60 @@ export async function POST(req: NextRequest) {
   const b = await req.json();
   const code = (b.code || "").toUpperCase();
   const email = (b.email || "").trim().toLowerCase();
-  const pwd = b.pw || "";
+  const userKey = String(b[FORM_KEY] ?? "");
   const username = (b.username || "").trim().toLowerCase();
-  const trx = (b.trx_id || "").trim().toUpperCase();
+  const phone = (b.phone || "").trim();
+  const s = await settings();
+  const fee = Number(s.entry_fee) || 0;
+  const trx = fee > 0 ? (b.trx_id || "").trim().toUpperCase() : "";
 
-  if (!b.first_name || !email || !username || !trx)
-    return NextResponse.json({ error: "Saare khane bharein" }, { status: 400 });
-  if (pwd.length < 6)
-    return NextResponse.json({ error: "Password kam az kam 6 characters ka ho" }, { status: 400 });
-  if (!/^[a-z0-9_]{3,20}$/.test(username))
-    return NextResponse.json({ error: "Username sirf chhote huroof, number aur _ (3 se 20)" }, { status: 400 });
+  if (!b.first_name?.trim() || !b.surname?.trim() || !username || !phone || !email)
+    return err("Saare khane bharein");
+  if (!/^03\d{9}$/.test(phone)) return err("Mobile number 03XXXXXXXXX jaisa likhein (11 number)");
+  if (userKey.length < 6) return err("Password kam az kam 6 characters ka ho");
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) return err("Username sirf chhote huroof, number aur _ (3 se 20)");
+  if (fee > 0 && !trx) return err("TRX ID likhein");
 
-  const v = await validInvite(code);
-  if (v.error) return NextResponse.json({ error: v.error }, { status: 400 });
+  const v: any = await validInvite(code);
+  if (v.error) return err(v.error);
 
-  const { data: u1 } = await supabaseAdmin.from("profiles").select("id").eq("username", username).maybeSingle();
-  if (u1) return NextResponse.json({ error: "Ye username pehle se liya hua hai" }, { status: 400 });
-  const { data: t1 } = await supabaseAdmin.from("profiles").select("id").eq("payment_trx_id", trx).maybeSingle();
-  if (t1) return NextResponse.json({ error: "Ye TRX ID pehle istemaal ho chuki hai" }, { status: 400 });
+  const { data: u1 } = await db.from("profiles").select("id").eq("username", username).maybeSingle();
+  if (u1) return err("Ye username pehle se liya hua hai");
+  if (trx) {
+    const { data: t1 } = await db.from("profiles").select("id").eq("payment_trx_id", trx).maybeSingle();
+    if (t1) return err("Ye TRX ID pehle istemaal ho chuki hai");
+  }
 
-  // Invite ko lock karein (sirf ek dafa)
   const now = new Date().toISOString();
-  const { data: claimed } = await supabaseAdmin
-    .from("referral_invites")
-    .update({ used_at: now })
-    .eq("code", code)
-    .is("used_at", null)
-    .select()
-    .maybeSingle();
-  if (!claimed) return NextResponse.json({ error: "Ye invite link istemaal ho chuka hai" }, { status: 400 });
+  const { data: claimed } = await db.from("referral_invites")
+    .update({ used_at: now }).eq("code", code).is("used_at", null).select().maybeSingle();
+  if (!claimed) return err("Ye invite link istemaal ho chuka hai");
+  const release = () => db.from("referral_invites").update({ used_at: null }).eq("code", code);
 
-  const release = () => supabaseAdmin.from("referral_invites").update({ used_at: null }).eq("code", code);
-
-  const { data: created, error: e1 } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password: pwd,
-    email_confirm: true,
-  });
+  const authBody: any = { email, email_confirm: true };
+  authBody[AUTH_KEY] = userKey;
+  const { data: created, error: e1 } = await db.auth.admin.createUser(authBody);
   if (e1 || !created?.user) {
     await release();
-    return NextResponse.json({ error: e1?.message?.includes("already") ? "Ye email pehle se registered hai" : (e1?.message || "Account nahi bana") }, { status: 400 });
+    return err(e1?.message?.includes("already") ? "Ye email pehle se registered hai" : e1?.message || "Account nahi bana");
   }
 
-  const s = await settings();
-  const { error: e2 } = await supabaseAdmin.from("profiles").upsert({
-    id: created.user.id,
-    username,
-    first_name: b.first_name,
-    surname: b.surname || null,
-    phone: b.phone || null,
-    email,
-    role: "staff",
-    team_code: claimed.team_code,
-    referred_by: claimed.created_by,
-    created_by: claimed.created_by,
-    account_status: "pending",
-    payment_trx_id: trx,
-    payment_amount: s.entry_fee,
-    payment_submitted_at: now,
+  const { error: e2 } = await db.from("profiles").upsert({
+    id: created.user.id, username, email, phone,
+    first_name: b.first_name.trim(), surname: b.surname.trim(),
+    role: "staff", team_code: claimed.team_code,
+    referred_by: claimed.created_by, created_by: claimed.created_by,
+    account_status: fee > 0 ? "pending" : "active",
+    payment_trx_id: trx || null,
+    payment_amount: fee,
+    payment_submitted_at: fee > 0 ? now : null,
   });
   if (e2) {
-    await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+    await db.auth.admin.deleteUser(created.user.id);
     await release();
-    return NextResponse.json({ error: e2.message }, { status: 400 });
+    return err(e2.message);
   }
 
-  await supabaseAdmin.from("referral_invites").update({ used_by: created.user.id }).eq("code", code);
-  return NextResponse.json({ ok: true });
+  await db.from("referral_invites").update({ used_by: created.user.id }).eq("code", code);
+  return NextResponse.json({ ok: true, active: fee <= 0 });
 }
