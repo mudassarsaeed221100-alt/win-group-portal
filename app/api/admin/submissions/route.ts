@@ -57,7 +57,18 @@ export async function GET(req: NextRequest) {
       reward_amount: t?.reward_amount || 0,
     };
   });
-
+  const paths = result
+    .map((s: any) => s.proof_url)
+    .filter((p: any) => p && !String(p).startsWith("http"));
+  if (paths.length) {
+    const { data: signed } = await supabaseAdmin.storage
+      .from("work-proofs")
+      .createSignedUrls(paths, 3600);
+    const links = new Map((signed || []).map((x: any) => [x.path, x.signedUrl]));
+    result.forEach((s: any) => {
+      if (s.proof_url) s.proof_link = links.get(s.proof_url) || null;
+    });
+  }
   return NextResponse.json({ submissions: result });
 }
 
