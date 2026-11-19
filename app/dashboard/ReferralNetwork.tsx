@@ -1,65 +1,45 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-type Member = {
-  id: string;
-  username: string | null;
-  first_name: string | null;
-  surname: string | null;
-  role: string;
-  team_code: string | null;
-  referred_by: string | null;
-  created_at: string;
-};
+const ROLE_NAME: Record<string, string> = { founder_owner: "Founder", super_admin: "Super Admin", admin: "Admin", staff: "Staff" };
+const ROLE_COLOR: Record<string, string> = { founder_owner: "#d8b4fe", super_admin: "#fbbf24", admin: "#86efac", staff: "#67e8f9" };
 
 export default function ReferralNetwork() {
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [bonus, setBonus] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadMembers();
-  }, []);
-
-  async function loadMembers() {
+  async function load() {
     setLoading(true);
     setError("");
-
     try {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Login session nahi mili.");
+      const { data: me } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
+      if (me?.role !== "founder_owner") throw new Error("Sirf Founder is module ko access kar sakta hai.");
 
-      if (authError || !authData.user) {
-        throw new Error("Login session nahi mili.");
-      }
-
-      const { data: currentProfile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", authData.user.id)
-          .single();
-
-      if (profileError) throw profileError;
-
-      if (currentProfile.role !== "founder_owner") {
-        throw new Error("Sirf Founder is module ko access kar sakta hai.");
-      }
-
-      const { data, error: membersError } = await supabase
+      const { data, error: e } = await supabase
         .from("profiles")
-        .select(
-          "id, username, first_name, surname, role, team_code, referred_by, created_at"
-        )
-        .order("created_at", { ascending: false });
+        .select("id, username, first_name, surname, role, team_code, referred_by, account_status, created_at")
+        .order("created_at", { ascending: true });
+      if (e) throw e;
+      setMembers(data || []);
 
-      if (membersError) throw membersError;
-
-      setMembers((data || []) as Member[]);
+      const { data: s } = await supabase.auth.getSession();
+      const r = await fetch("/api/commissions", { headers: { Authorization: `Bearer ${s.session?.access_token || ""}` }, cache: "no-store" });
+      if (r.ok) {
+        const j = await r.json();
+        const b: Record<string, number> = {};
+        (j.list || []).filter((c: any) => c.share === "Direct Referrer").forEach((c: any) => {
+          b[c.recipient_id] = (b[c.recipient_id] || 0) + Number(c.amount || 0);
+        });
+        setBonus(b);
+      }
     } catch (err: any) {
       setError(err.message || "Referral data load nahi ho saka.");
     } finally {
@@ -67,275 +47,55 @@ export default function ReferralNetwork() {
     }
   }
 
-  const memberMap = useMemo(() => {
-    return new Map(members.map((member) => [member.id, member]));
+  useEffect(() => { load(); }, []);
+
+  const map = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
+  const children = useMemo(() => {
+    const c: Record<string, any[]> = {};
+    members.forEach((m) => { if (m.referred_by) c[m.referred_by] = [...(c[m.referred_by] || []), m]; });
+    return c;
   }, [members]);
 
-  const referralCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+  const name = (m: any) => (m ? `${m.first_name || ""} ${m.surname || ""}`.trim() || m.username || "Unnamed" : "Unknown");
+  const money = (n: number) => "Rs. " + Number(n || 0).toLocaleString("en-PK");
+  const toggle = (id: string) => setOpen((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-    members.forEach((member) => {
-      if (member.referred_by) {
-        counts[member.referred_by] =
-          (counts[member.referred_by] || 0) + 1;
-      }
-    });
+  const totalRef = members.filter((m) => m.referred_by).length;
+  const noRef = members.filter((m) => m.role !== "founder_owner" && !m.referred_by).length;
+  const totalBonus = Object.values(bonus).reduce((a, b) => a + b, 0);
+  const top = Object.entries(children).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
+  const roots = members.filter((m) => !m.referred_by || !map.has(m.referred_by));
 
-    return counts;
-  }, [members]);
+  const q = search.trim().toLowerCase();
+  const found = q ? members.filter((m) =>
+    `${name(m)} ${m.username} ${m.team_code} ${name(map.get(m.referred_by))}`.toLowerCase().includes(q)) : [];
 
-  const filteredMembers = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  const box: React.CSSProperties = { background: "linear-gradient(145deg,#202020,#171717)", border: "1px solid #383838", borderRadius: 9, padding: 18, marginBottom: 16 };
+  const tag = (r: string): React.CSSProperties => ({ fontSize: 10, fontWeight: 700, color: ROLE_COLOR[r] || "#ccc", border: "1px solid #333", padding: "2px 7px", borderRadius: 4 });
 
-    if (!term) return members;
+  function Node({ m, depth }: { m: any; depth: number }) {
+    const kids = children[m.id] || [];
+    const isOpen = open.includes(m.id);
+    return (
+      <div style={{ marginLeft: depth ? 18 : 0, borderLeft: depth ? "1px solid #333" : "none", paddingLeft: depth ? 10 : 0 }}>
+        <div onClick={() => kids.length && toggle(m.id)}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", margin: "4px 0", background: "#1b1b1b", border: "1px solid #2c2c2c", borderRadius: 7, cursor: kids.length ? "pointer" : "default", flexWrap: "wrap" }}>
+          <span style={{ color: "#888", width: 14 }}>{kids.length ? (isOpen ? "▾" : "▸") : "•"}</span>
+          <b style={{ color: "#fff", fontSize: 13 }}>{name(m)}</b>
+          <span style={tag(m.role)}>{ROLE_NAME[m.role] || m.role}</span>
+          <span style={{ fontSize: 11, color: "#888" }}>Team: {m.team_code || "—"}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "#93c5fd" }}>👥 {kids.length}</span>
+          {bonus[m.id] ? <span style={{ fontSize: 11, color: "#86efac" }}>🎁 {money(bonus[m.id])}</span> : null}
+        </div>
+        {isOpen && kids.map((k) => <Node key={k.id} m={k} depth={depth + 1} />)}
+      </div>
+    );
+  }
 
-    return members.filter((member) => {
-      const referrer = member.referred_by
-        ? memberMap.get(member.referred_by)
-        : null;
-
-      const memberName =
-        `${member.first_name || ""} ${member.surname || ""}`.toLowerCase();
-
-      const referrerName = referrer
-        ? `${referrer.first_name || ""} ${referrer.surname || ""}`.toLowerCase()
-        : "";
-
-      return (
-        memberName.includes(term) ||
-        (member.username || "").toLowerCase().includes(term) ||
-        member.role.toLowerCase().includes(term) ||
-        (member.team_code || "").toLowerCase().includes(term) ||
-        referrerName.includes(term)
-      );
-    });
-  }, [members, search, memberMap]);
-
-  const totalReferrals = members.filter(
-    (member) => member.referred_by
-  ).length;
-
-  const membersWithoutReferrer = members.filter(
-    (member) => member.role !== "founder_owner" && !member.referred_by
-  ).length;
-
-  const getName = (member: Member | undefined) => {
-    if (!member) return "Unknown Member";
-
-    const name =
-      `${member.first_name || ""} ${member.surname || ""}`.trim();
-
-    return name || member.username || "Unnamed Member";
-  };
-
-  const getRole = (role: string) => {
-    switch (role) {
-      case "founder_owner":
-        return "Founder";
-      case "super_admin":
-        return "Super Admin";
-      case "admin":
-        return "Admin";
-      case "staff":
-        return "Staff";
-      default:
-        return role;
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-PK", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  if (loading) return <p style={{ padding: 25, color: "#aaa" }}>Referral data load ho raha hai...</p>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div style={{ color: "#e9e9e9", marginTop: 22, fontFamily: "Arial, sans-serif" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Referral Network
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Company ke tamam members aur unke referral relationships.
-          </p>
-        </div>
-
-        <button
-          onClick={loadMembers}
-          disabled={loading}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
-        >
-          {loading ? "Loading..." : "Refresh"}
-        </button>
-      </div>
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Total Members</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {members.length}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Successful Referrals</p>
-          <p className="mt-2 text-3xl font-bold text-green-600">
-            {totalReferrals}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Without Referrer</p>
-          <p className="mt-2 text-3xl font-bold text-orange-600">
-            {membersWithoutReferrer}
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h3 className="mb-3 text-lg font-bold text-gray-900">
-          Top Referrers
-        </h3>
-
-        {loading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
-        ) : (
-          <div className="space-y-3">
-            {Object.entries(referralCounts)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 10)
-              .map(([id, count]) => {
-                const member = memberMap.get(id);
-
-                return (
-                  <div
-                    key={id}
-                    className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 p-3"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {getName(member)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {member ? getRole(member.role) : "Unknown"}
-                        {member?.team_code
-                          ? ` • ${member.team_code}`
-                          : ""}
-                      </p>
-                    </div>
-
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-700">
-                      {count} Referrals
-                    </span>
-                  </div>
-                );
-              })}
-
-            {Object.keys(referralCounts).length === 0 && (
-              <p className="text-sm text-gray-500">
-                Abhi koi referral record available nahi hai.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-bold text-gray-900">
-            All Referral Relationships
-          </h3>
-
-          <span className="text-sm text-gray-500">
-            {filteredMembers.length} Records
-          </span>
-        </div>
-
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Member, referrer ya team code search karein..."
-          className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-500"
-        />
-
-        {loading ? (
-          <p className="py-8 text-center text-gray-500">
-            Referral records load ho rahe hain...
-          </p>
-        ) : filteredMembers.length === 0 ? (
-          <p className="py-8 text-center text-gray-500">
-            Koi record nahi mila.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[750px] text-left text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-gray-600">
-                  <th className="p-3">Member</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Referred By</th>
-                  <th className="p-3">Team Code</th>
-                  <th className="p-3">Direct Referrals</th>
-                  <th className="p-3">Joined</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredMembers.map((member) => {
-                  const referrer = member.referred_by
-                    ? memberMap.get(member.referred_by)
-                    : undefined;
-
-                  return (
-                    <tr
-                      key={member.id}
-                      className="border-b last:border-0 hover:bg-gray-50"
-                    >
-                      <td className="p-3 font-semibold text-gray-900">
-                        {getName(member)}
-                      </td>
-
-                      <td className="p-3 text-gray-600">
-                        {getRole(member.role)}
-                      </td>
-
-                      <td className="p-3 text-gray-600">
-                        {member.referred_by
-                          ? getName(referrer)
-                          : "No Referrer"}
-                      </td>
-
-                      <td className="p-3 text-gray-600">
-                        {member.team_code || "Not Assigned"}
-                      </td>
-
-                      <td className="p-3">
-                        <span className="rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-700">
-                          {referralCounts[member.id] || 0}
-                        </span>
-                      </td>
-
-                      <td className="p-3 text-gray-600">
-                        {formatDate(member.created_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          <div style={{
