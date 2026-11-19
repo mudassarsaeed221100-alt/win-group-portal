@@ -18,7 +18,8 @@ async function makeCommissions(userId: string, founderId: string) {
   const { data: m } = await db.from("profiles")
     .select("id, referred_by, team_code, payment_amount").eq("id", userId).single();
   if (!m) return;
-  const fee = Number(m.payment_amount) || 1000;
+  const fee = Number(m.payment_amount) || 0;
+  if (fee <= 0) return;
 
   let adminId: string | null = null;
   let saId: string | null = null;
