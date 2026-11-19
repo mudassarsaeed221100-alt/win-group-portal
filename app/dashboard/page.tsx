@@ -75,7 +75,7 @@ const groups: Group[] = [
   ]},
 ];
 
-const pages: Record<string, () => JSX.Element> = {
+const pages: Record<string, () => React.ReactNode> = {
   "Profile Edit": () => <ProfileSettings />,
   "User Management": () => <UserManagement />,
   Departments: () => <Departments />,
