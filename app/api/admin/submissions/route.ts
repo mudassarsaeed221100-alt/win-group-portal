@@ -1,121 +1,104 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "../../../../lib/supabase-admin";
 
-export default function SubmissionsPage() {
-  const [subs, setSubs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
-  const [filter, setFilter] = useState("pending");
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState("");
-  const [view, setView] = useState("");
+async function getCaller(req: NextRequest) {
+  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return null;
+  const { data } = await supabaseAdmin.auth.getUser(token);
+  if (!data?.user) return null;
+  const { data: p } = await supabaseAdmin.from("profiles").select("id, role, team_code").eq("id", data.user.id).single();
+  if (!p || !["founder_owner", "super_admin", "admin"].includes(p.role)) return null;
+  return p;
+}
 
-  async function headers() {
-    const { data } = await supabase.auth.getSession();
-    return { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token || ""}` };
+async function teamPeople(caller: any) {
+  let q = supabaseAdmin.from("profiles").select("id, first_name, surname, username, role");
+  if (caller.role !== "founder_owner") q = q.eq("team_code", caller.team_code);
+  const { data } = await q;
+  return data || [];
+}
+
+export async function GET(req: NextRequest) {
+  const caller = await getCaller(req);
+  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const people = await teamPeople(caller);
+  const ids = people.map((p: any) => p.id);
+  if (ids.length === 0) return NextResponse.json({ submissions: [] });
+
+  const { data: subs, error } = await supabaseAdmin.from("work_submissions").select("*")
+    .in("user_id", ids).order("created_at", { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const taskIds = [...new Set((subs || []).map((s: any) => s.task_id).filter(Boolean))];
+  let tasks: any[] = [];
+  if (taskIds.length) {
+    const { data } = await supabaseAdmin.from("work_tasks").select("id, title, reward_amount").in("id", taskIds);
+    tasks = data || [];
   }
 
-  async function load() {
-    setLoading(true);
-    const res = await fetch("/api/admin/submissions", { headers: await headers(), cache: "no-store" });
-    const json = await res.json();
-    if (!res.ok) setMsg("❌ " + (json.error || "Load nahi hua"));
-    else setSubs(json.submissions || []);
-    setLoading(false);
+  const result = (subs || []).map((s: any) => {
+    const p: any = people.find((x: any) => x.id === s.user_id);
+    const t: any = tasks.find((x: any) => x.id === s.task_id);
+    return {
+      ...s,
+      staff_name: p ? (`${p.first_name || ""} ${p.surname || ""}`.trim() || p.username) : "—",
+      task_title: t?.title || "—",
+      reward_amount: t?.reward_amount || 0,
+    };
+  });
+
+  const paths = result.map((s: any) => s.proof_url).filter((p: any) => p && !String(p).startsWith("http"));
+  if (paths.length) {
+    const { data: signed } = await supabaseAdmin.storage.from("work-proofs").createSignedUrls(paths, 3600);
+    const links = new Map((signed || []).map((x: any) => [x.path, x.signedUrl]));
+    result.forEach((s: any) => { if (s.proof_url) s.proof_link = links.get(s.proof_url) || null; });
+  }
+  return NextResponse.json({ submissions: result });
+}
+
+export async function PATCH(req: NextRequest) {
+  const caller = await getCaller(req);
+  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const people = await teamPeople(caller);
+  const ids = people.map((p: any) => p.id);
+
+  const { data: sub } = await supabaseAdmin.from("work_submissions").select("*").eq("id", body.id).single();
+  if (!sub || !ids.includes(sub.user_id)) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+
+  const now = new Date().toISOString();
+
+  if (body.action === "approve") {
+    const amount = Number(body.amount) || 0;
+    const { error } = await supabaseAdmin.from("work_submissions")
+      .update({ status: "approved", earning_amount: amount, reviewed_by: caller.id, reviewed_at: now }).eq("id", sub.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    const { data: old } = await supabaseAdmin.from("earnings_ledger").select("id, payment_status").eq("submission_id", sub.id).maybeSingle();
+    if (old) {
+      if (old.payment_status !== "paid") await supabaseAdmin.from("earnings_ledger").update({ amount }).eq("id", old.id);
+    } else if (amount > 0) {
+      const { error: e2 } = await supabaseAdmin.from("earnings_ledger").insert({
+        submission_id: sub.id, user_id: sub.user_id, amount, payment_status: "unpaid",
+      });
+      if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
-  useEffect(() => { load(); }, []);
+  if (body.action === "reject") {
+    const { data: old } = await supabaseAdmin.from("earnings_ledger").select("id, payment_status").eq("submission_id", sub.id).maybeSingle();
+    if (old?.payment_status === "paid")
+      return NextResponse.json({ error: "Is ki payment ho chuki hai, reject nahi ho sakta" }, { status: 400 });
+    if (old) await supabaseAdmin.from("earnings_ledger").delete().eq("id", old.id);
 
-  async function review(s: any, action: "approve" | "reject") {
-    const amount = amounts[s.id] ?? String(s.reward_amount || 0);
-    if (action === "approve" && !(Number(amount) > 0)) return setMsg("❌ Earning amount likhein");
-    if (action === "reject" && !confirm("Ye kaam reject karna hai?")) return;
-    setBusy(s.id); setMsg("");
-    const res = await fetch("/api/admin/submissions", {
-      method: "PATCH", headers: await headers(),
-      body: JSON.stringify({ id: s.id, action, amount }),
-    });
-    const json = await res.json();
-    setBusy("");
-    if (!res.ok) return setMsg("❌ " + (json.error || "Nahi hua"));
-    setMsg(action === "approve" ? "✅ Approve ho gaya, kamai staff ke account mein chali gayi" : "✅ Reject ho gaya");
-    load();
+    const { error } = await supabaseAdmin.from("work_submissions")
+      .update({ status: "rejected", earning_amount: 0, reviewed_by: caller.id, reviewed_at: now }).eq("id", sub.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
 
-  const isPdf = (p: string) => /\.pdf$/i.test(p || "");
-  const count = (k: string) => subs.filter((s) => k === "all" || s.status === k).length;
-  const shown = subs.filter((s) => filter === "all" || s.status === filter);
-
-  const card: React.CSSProperties = { background: "#111", border: "1px solid #2a2a2a", borderRadius: 14, padding: 20, marginBottom: 20 };
-  const btn = (bg: string): React.CSSProperties => ({ background: bg, color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontSize: 13, marginRight: 6 });
-  const badge = (st: string) => (st === "approved" ? "#14532d" : st === "rejected" ? "#7f1d1d" : "#78350f");
-
-  return (
-    <div style={{ color: "#eee" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>📥 Submissions</h1>
-      <p style={{ color: "#888", marginBottom: 20 }}>Staff ka bheja hua kaam check karein, approve ya reject karein.</p>
-
-      {msg && <div style={{ ...card, padding: 12 }} onClick={() => setMsg("")}>{msg}</div>}
-
-      <div style={card}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          {[["pending", "⏳ Pending"], ["approved", "✅ Approved"], ["rejected", "❌ Rejected"], ["all", "Sab"]].map(([k, l]) => (
-            <button key={k} style={btn(filter === k ? "#444" : "#1f1f1f")} onClick={() => setFilter(k)}>{l} ({count(k)})</button>
-          ))}
-          <button style={btn("#1f1f1f")} onClick={load}>↻ Refresh</button>
-        </div>
-
-        {loading ? <p>Load ho raha hai...</p> : shown.length === 0 ? <p style={{ color: "#777" }}>Koi submission nahi</p> : (
-          shown.map((s) => (
-            <div key={s.id} style={{ borderTop: "1px solid #222", padding: "14px 0" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <b style={{ fontSize: 16 }}>{s.task_title}</b>
-                <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 20, background: badge(s.status) }}>{s.status}</span>
-              </div>
-              <p style={{ fontSize: 13, color: "#888", margin: "4px 0" }}>
-                👤 {s.staff_name} · 📅 {new Date(s.created_at).toLocaleString("en-PK")} · 💰 Reward: Rs. {s.reward_amount}
-              </p>
-              {s.work_description && <p style={{ color: "#bbb", margin: "6px 0" }}>{s.work_description}</p>}
-
-              {s.proof_link ? (
-                isPdf(s.proof_url) ? (
-                  <a href={s.proof_link} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", fontSize: 13 }}>📄 PDF Proof kholein</a>
-                ) : (
-                  <div onClick={() => setView(s.proof_link)} style={{ cursor: "pointer", marginTop: 8, display: "inline-block" }}>
-                    <img src={s.proof_link} alt="Proof" style={{ display: "block", maxWidth: 260, maxHeight: 200, objectFit: "cover", borderRadius: 10, border: "1px solid #333" }} />
-                    <span style={{ color: "#60a5fa", fontSize: 12 }}>🔍 Bara dekhne ke liye click karein</span>
-                  </div>
-                )
-              ) : s.proof_url ? (
-                <p style={{ color: "#f87171", fontSize: 12 }}>⚠️ Proof file nahi mili</p>
-              ) : null}
-
-              {s.status === "pending" ? (
-                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <input type="number" value={amounts[s.id] ?? String(s.reward_amount || 0)}
-                    onChange={(e) => setAmounts({ ...amounts, [s.id]: e.target.value })}
-                    style={{ width: 120, padding: "7px 10px", background: "#0a0a0a", border: "1px solid #333", borderRadius: 8, color: "#fff" }} />
-                  <button style={btn("#16a34a")} disabled={busy === s.id} onClick={() => review(s, "approve")}>✅ Approve</button>
-                  <button style={btn("#b91c1c")} disabled={busy === s.id} onClick={() => review(s, "reject")}>❌ Reject</button>
-                </div>
-              ) : (
-                <p style={{ fontSize: 13, color: "#888", marginTop: 6 }}>
-                  {s.status === "approved" ? `💵 Earning: Rs. ${s.earning_amount}` : "Reject kiya gaya"}
-                  {s.reviewed_at ? ` · ${new Date(s.reviewed_at).toLocaleString("en-PK")}` : ""}
-                </p>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {view && (
-        <div onClick={() => setView("")} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.9)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <img src={view} alt="Proof" style={{ maxWidth: "95%", maxHeight: "90vh", borderRadius: 10 }} />
-          <span style={{ position: "fixed", top: 18, right: 24, color: "#fff", fontSize: 28, cursor: "pointer" }}>✕</span>
-        </div>
-      )}
-    </div>
-  );
+  return NextResponse.json({ error: "Galat action" }, { status: 400 });
 }
